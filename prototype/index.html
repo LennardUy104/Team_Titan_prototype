@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Titan — Performance Management</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="app">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <div class="brand">
+        <span class="brand-mark">◆</span>
+        <span class="brand-name">Titan</span>
+      </div>
+      <div class="nav-section">Workspace</div>
+      <nav class="nav" id="nav">
+        <button class="nav-item active" data-view="dashboard">
+          <span class="nav-ico">▤</span> Dashboard
+        </button>
+        <button class="nav-item" data-view="objectives">
+          <span class="nav-ico">◎</span> Objectives
+        </button>
+        <button class="nav-item" data-view="ai">
+          <span class="nav-ico">✦</span> AI Assistant
+        </button>
+        <button class="nav-item" data-view="reviews">
+          <span class="nav-ico">✓</span> Reviews
+        </button>
+      </nav>
+      <div class="sidebar-foot">
+        <div class="mini-note">Prototype · dummy data</div>
+      </div>
+    </aside>
+
+    <!-- Main -->
+    <div class="main">
+      <header class="topbar">
+        <div class="topbar-title" id="topbar-title">Dashboard</div>
+        <div class="topbar-right">
+          <div class="role-switch" id="role-switch">
+            <button class="role-btn active" data-role="employee">Employee</button>
+            <button class="role-btn" data-role="leader">Leader</button>
+          </div>
+          <div class="user-chip" id="user-chip">
+            <span class="avatar" id="user-avatar">AP</span>
+            <span class="user-name" id="user-name">Abdul Palala</span>
+          </div>
+        </div>
+      </header>
+
+      <main class="content" id="content"><!-- views render here --></main>
+    </div>
+  </div>
+
+  <!-- Modal host -->
+  <div class="modal-overlay" id="modal-overlay" hidden>
+    <div class="modal" id="modal"></div>
+  </div>
+
+  <!-- Data first, then view modules, then the app controller -->
+  <script src="mock-data.js"></script>
+  <script src="views-dashboard.js"></script>
+  <script src="views-objectives.js"></script>
+  <script src="views-ai.js"></script>
+  <script src="views-reviews.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
