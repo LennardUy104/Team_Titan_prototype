@@ -306,7 +306,7 @@ body {
 /* forms */
 .field { margin-bottom: 14px; }
 .field label { display: block; font-size: var(--fs-label); font-weight: var(--fw-medium); line-height: var(--lh-label); color: var(--muted); margin-bottom: 6px; }
-input[type=text], input[type=date], input[type=time], input[type=number], textarea, select {
+input[type=text], input[type=email], input[type=password], input[type=date], input[type=time], input[type=number], textarea, select {
   width: 100%; font-family: inherit; font-size: var(--fs-input); font-weight: var(--fw-regular); line-height: var(--lh-body); padding: 9px 11px;
   border: 1px solid var(--border); border-radius: var(--r-btn); background: var(--surface); color: var(--text);
 }
@@ -370,3 +370,53 @@ input:focus, textarea:focus, select:focus { outline: none; border-color: var(--a
 .right { text-align: right; }
 .divider { height: 1px; background: var(--border); margin: 16px 0; }
 .empty { color: var(--muted); font-size: var(--fs-label); line-height: var(--lh-body); text-align: center; padding: 30px; }
+
+/* sidebar sign-out */
+.signout-btn { width: 100%; display: flex; align-items: center; gap: 8px; justify-content: flex-start; color: var(--muted); margin-bottom: 8px; }
+.signout-btn:hover { color: var(--text); }
+
+/* ============================================================
+   AUTH / LOGIN (login.html) — reuses the shared token system,
+   so every theme applies here too. Fake auth for the prototype.
+   ============================================================ */
+.auth { display: grid; grid-template-columns: 1.1fr 1fr; min-height: 100vh; }
+
+.auth-brand {
+  background: linear-gradient(160deg, var(--green-deep), var(--green-deep2));
+  color: var(--on-dark); padding: 48px 52px; display: flex; flex-direction: column;
+}
+.auth-brand .brand { padding: 0; }
+.auth-brand .brand-mark, .auth-brand .brand-name { color: var(--on-dark); }
+.auth-pitch { margin: auto 0; max-width: 460px; }
+.auth-pitch h1 { font-size: 34px; font-weight: var(--fw-bold); line-height: 1.2; letter-spacing: var(--ls-tight); margin: 0 0 14px; }
+.auth-pitch p { font-size: 16px; line-height: var(--lh-body); color: rgba(255, 255, 255, .82); margin: 0 0 28px; }
+.auth-points { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 12px; }
+.auth-points li { font-size: var(--fs-body); color: rgba(255, 255, 255, .92); display: flex; gap: 9px; }
+.auth-points .ck { color: var(--lime); font-weight: var(--fw-bold); }
+.auth-foot { margin-top: auto; font-size: var(--fs-eyebrow); color: rgba(255, 255, 255, .6); }
+
+.auth-panel { display: grid; place-items: center; padding: 40px 24px; background: var(--bg); }
+.auth-card { width: 100%; max-width: 400px; }
+.auth-card .brand { display: none; margin-bottom: 20px; padding: 0; }
+.auth-title { font-size: var(--fs-page-title); font-weight: var(--fw-bold); letter-spacing: var(--ls-tight); line-height: var(--lh-heading); margin: 0 0 6px; }
+.auth-sub { color: var(--muted); font-size: var(--fs-body); margin: 0 0 24px; }
+.auth-role { width: 100%; display: inline-flex; margin-bottom: 20px; }
+.auth-role .role-btn { flex: 1; text-align: center; }
+.auth-row { display: flex; align-items: center; justify-content: space-between; margin: -2px 0 18px; }
+.auth-check { display: flex; align-items: center; gap: 7px; font-size: var(--fs-label); color: var(--muted); cursor: pointer; }
+.auth-check input { width: auto; }
+.auth-link { font-size: var(--fs-label); color: var(--accent); text-decoration: none; font-weight: var(--fw-medium); }
+.auth-link:hover { text-decoration: underline; }
+.auth-submit { width: 100%; padding: 11px; }
+.auth-divider { display: flex; align-items: center; gap: 12px; margin: 22px 0; color: var(--faint); font-size: var(--fs-helper); }
+.auth-divider::before, .auth-divider::after { content: ""; flex: 1; height: 1px; background: var(--border); }
+.auth-sso { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.auth-sso-btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
+.auth-sso-btn .g { font-weight: var(--fw-bold); color: #4285f4; }
+.auth-hint { text-align: center; color: var(--faint); font-size: var(--fs-helper); margin: 20px 0 0; }
+
+@media (max-width: 860px) {
+  .auth { grid-template-columns: 1fr; }
+  .auth-brand { display: none; }
+  .auth-card .brand { display: flex; }
+}

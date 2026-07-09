@@ -8,6 +8,12 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" />
   <link rel="stylesheet" href="styles.css" />
+  <!-- Auth gate: unauthenticated visitors are sent to the login page (fake auth, prototype). -->
+  <script>
+    try {
+      if (localStorage.getItem("titan-authed") !== "1") window.location.replace("login.html");
+    } catch (e) { /* private mode — allow through */ }
+  </script>
 </head>
 <body>
   <div class="app">
@@ -33,6 +39,7 @@
         </button>
       </nav>
       <div class="sidebar-foot">
+        <button class="btn sm signout-btn" id="signout"><span>⤶</span> Sign out</button>
         <div class="mini-note">Prototype · dummy data</div>
       </div>
     </aside>

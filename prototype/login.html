@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Titan — Sign in</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" />
+  <link rel="stylesheet" href="styles.css" />
+  <!-- Apply the theme chosen in the app before paint, so login matches. -->
+  <script>
+    try {
+      var t = localStorage.getItem("titan-theme");
+      if (t && t !== "evergreen") document.documentElement.setAttribute("data-theme", t);
+    } catch (e) { /* private mode */ }
+  </script>
+</head>
+<body>
+  <div class="auth">
+    <!-- Brand / pitch panel (hidden on small screens) -->
+    <aside class="auth-brand">
+      <div class="brand">
+        <span class="brand-mark">◆</span>
+        <span class="brand-name">Titan</span>
+      </div>
+      <div class="auth-pitch">
+        <h1>Performance management, minus the busywork.</h1>
+        <p>Objectives, reviews, and AI-assisted insights in one calm workspace.</p>
+        <ul class="auth-points">
+          <li><span class="ck">✓</span> Align objectives with weighted success criteria</li>
+          <li><span class="ck">✓</span> AI-drafted evaluations you stay in control of</li>
+          <li><span class="ck">✓</span> Employee &amp; Leader views, one source of truth</li>
+        </ul>
+      </div>
+      <div class="auth-foot">Prototype · dummy data</div>
+    </aside>
+
+    <!-- Login form -->
+    <main class="auth-panel">
+      <div class="auth-card">
+        <div class="brand">
+          <span class="brand-mark">◆</span>
+          <span class="brand-name">Titan</span>
+        </div>
+        <h2 class="auth-title">Welcome back</h2>
+        <p class="auth-sub">Sign in to your workspace</p>
+
+        <div class="role-switch auth-role" id="auth-role">
+          <button type="button" class="role-btn active" data-role="employee">Employee</button>
+          <button type="button" class="role-btn" data-role="leader">Leader</button>
+        </div>
+
+        <form id="login-form" novalidate>
+          <div class="field">
+            <label for="email">Work email</label>
+            <input type="email" id="email" placeholder="you@company.com" autocomplete="username" />
+          </div>
+          <div class="field">
+            <label for="password">Password</label>
+            <input type="password" id="password" placeholder="••••••••" autocomplete="current-password" />
+          </div>
+          <div class="auth-row">
+            <label class="auth-check"><input type="checkbox" id="remember" checked /> Remember me</label>
+            <a href="#" class="auth-link">Forgot password?</a>
+          </div>
+          <button type="submit" class="btn primary auth-submit">Sign in</button>
+        </form>
+
+        <div class="auth-divider"><span>or continue with</span></div>
+        <div class="auth-sso">
+          <button type="button" class="btn auth-sso-btn" data-sso="google"><span class="g">G</span> Google</button>
+          <button type="button" class="btn auth-sso-btn" data-sso="microsoft">⊞ Microsoft</button>
+        </div>
+
+        <p class="auth-hint">Prototype — any email and password will sign you in.</p>
+      </div>
+    </main>
+  </div>
+
+  <script src="login.js"></script>
+</body>
+</html>

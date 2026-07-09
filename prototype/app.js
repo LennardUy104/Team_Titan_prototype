@@ -1,7 +1,10 @@
 /* Titan prototype — app controller: routing, role switching, shared UI helpers, modal. */
 
 const App = {
-  role: "employee",     // employee | leader
+  // Initial role comes from the login screen's choice (falls back to employee).
+  role: (function () {
+    try { return localStorage.getItem("titan-role") || "employee"; } catch (e) { return "employee"; }
+  })(),
   view: "dashboard",    // dashboard | objectives | ai | reviews
 };
 
@@ -249,7 +252,15 @@ function boot() {
     const btn = e.target.closest(".role-btn");
     if (!btn) return;
     App.role = btn.dataset.role;
+    try { localStorage.setItem("titan-role", App.role); } catch (err) { /* ignore */ }
     render();
+  });
+
+  // Sign out → clear the fake session and return to the login page.
+  const signout = document.getElementById("signout");
+  if (signout) signout.addEventListener("click", () => {
+    try { localStorage.removeItem("titan-authed"); } catch (err) { /* ignore */ }
+    window.location.href = "login.html";
   });
 
   // Close modal on overlay click or [data-close]
