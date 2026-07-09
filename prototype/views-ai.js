@@ -2,14 +2,24 @@
 window.Views = window.Views || {};
 window.ViewsWire = window.ViewsWire || {};
 
-window.Views.ai = function () {
+window.Views.ai = function (role) {
   const ai = DB.AI;
+  const isLeader = role === "leader";
+
+  // Employees get a self-only assistant; leaders get the full cross-team toolkit.
+  const reportList = isLeader ? ai.reports : ai.employeeReports;
+  const suggestList = isLeader ? ai.chatSuggestions : ai.employeeChatSuggestions;
+  const feedbackTitle = isLeader ? "✦ AI Suggested Feedback" : "✦ Your Strengths &amp; Focus Areas";
+  const greeting = isLeader
+    ? "Hi! I'm your Titan AI assistant. Ask me about your team's performance, objectives, or activity. Try a suggestion below."
+    : "Hi! I'm your Titan AI assistant. I can answer questions about your own performance and objectives. Try a suggestion below.";
+  const scopeHint = isLeader ? "" : `<span class="hint">Scoped to your own data</span>`;
 
   const strengths = ai.feedback.strengths.map((s) => `<li><span class="ck">✓</span> ${UI.esc(s)}</li>`).join("");
   const improvements = ai.feedback.improvements.map((s) => `<li><span class="ck off">○</span> ${UI.esc(s)}</li>`).join("");
   const reasons = ai.progress.reasons.map((r) => `<li><span class="ck">✓</span> ${UI.esc(r)}</li>`).join("");
-  const reports = ai.reports.map((r) => `<button class="btn sm" data-report="${UI.esc(r)}">${UI.esc(r)}</button>`).join(" ");
-  const suggests = ai.chatSuggestions.map((q) => `<span class="tag" data-ask="${UI.esc(q)}">${UI.esc(q)}</span>`).join("");
+  const reports = reportList.map((r) => `<button class="btn sm" data-report="${UI.esc(r)}">${UI.esc(r)}</button>`).join(" ");
+  const suggests = suggestList.map((q) => `<span class="tag" data-ask="${UI.esc(q)}">${UI.esc(q)}</span>`).join("");
 
   return `
     <div class="grid grid-2">
@@ -31,7 +41,7 @@ window.Views.ai = function () {
         </div>
 
         <div class="card">
-          <div class="card-title">✦ AI Suggested Feedback</div>
+          <div class="card-title">${feedbackTitle}</div>
           <div class="fb-cols">
             <div><h4>Strengths</h4><ul class="check-list">${strengths}</ul></div>
             <div><h4>Improvement Areas</h4><ul class="check-list">${improvements}</ul></div>
@@ -45,10 +55,10 @@ window.Views.ai = function () {
       </div>
 
       <div class="card">
-        <div class="card-title">✦ AI Chat Assistant</div>
+        <div class="card-title">✦ AI Chat Assistant ${scopeHint}</div>
         <div class="chat">
           <div class="chat-log" id="chat-log">
-            <div class="msg bot">Hi! I'm your Titan AI assistant. Ask me about performance, objectives, or activity. Try a suggestion below.</div>
+            <div class="msg bot">${UI.esc(greeting)}</div>
           </div>
           <div class="chat-suggests" id="chat-suggests">${suggests}</div>
           <div class="chat-input">
@@ -60,7 +70,12 @@ window.Views.ai = function () {
     </div>`;
 };
 
-window.ViewsWire.ai = function () {
+window.ViewsWire.ai = function (role) {
+  const isLeader = role === "leader";
+  // Match answers against the role-appropriate canned set (employees never see others' data).
+  const canned = isLeader ? DB.AI.chatCanned : DB.AI.employeeChatCanned;
+  const fallback = isLeader ? DB.AI.chatFallback : DB.AI.employeeChatFallback;
+
   const log = document.getElementById("chat-log");
   const input = document.getElementById("chat-input");
 
@@ -74,9 +89,9 @@ window.ViewsWire.ai = function () {
 
   function answer(q) {
     const lc = q.toLowerCase();
-    const hit = DB.AI.chatCanned.find((c) => c.match.every((m) => lc.includes(m)))
-             || DB.AI.chatCanned.find((c) => c.match.some((m) => lc.includes(m)));
-    return hit ? hit.reply : DB.AI.chatFallback;
+    const hit = canned.find((c) => c.match.every((m) => lc.includes(m)))
+             || canned.find((c) => c.match.some((m) => lc.includes(m)));
+    return hit ? hit.reply : fallback;
   }
 
   function send(q) {

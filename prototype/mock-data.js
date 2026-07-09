@@ -155,6 +155,24 @@ const AI = {
     { match: ["compare", "quarter"], reply: "Over the last three quarters Abdul's overall score moved 81 → 85 → 88. Delivery reliability and collaboration are trending up; documentation and test coverage remain the consistent improvement areas." },
   ],
   chatFallback: "This is a prototype AI assistant. In the full product I'd analyze objectives, GitHub, Backlog and Slack activity to answer that. Try one of the suggested questions to see a sample response.",
+
+  // --- Employee scope: self-only. No cross-person lookups (RBAC / privacy). ---
+  employeeReports: ["Self-Assessment Draft"],
+  employeeChatSuggestions: [
+    "Summarize my GitHub activity",
+    "Explain my delivery score",
+    "How am I tracking on my objective?",
+    "Compare my last three quarters",
+  ],
+  employeeChatCanned: [
+    { match: ["github"], reply: "Your GitHub activity: 38 pull requests merged, 43 PRs reviewed, 61 review comments, and a 96% PR approval rate. Most active in the platform and auth repositories." },
+    { match: ["objective"], reply: "You're at ~87% on 'Improve Delivery Reliability': 19 of 22 tasks complete, average completion time down 15%, and no overdue work this quarter." },
+    { match: ["track"], reply: "You're at ~87% on 'Improve Delivery Reliability': 19 of 22 tasks complete, average completion time down 15%, and no overdue work this quarter." },
+    { match: ["delivery"], reply: "Your delivery score this quarter reflects 19 of 22 tasks completed on time, a 15% faster average completion, and no overdue work. It's trending upward." },
+    { match: ["score"], reply: "Your delivery score this quarter reflects 19 of 22 tasks completed on time, a 15% faster average completion, and no overdue work. It's trending upward." },
+    { match: ["compare", "quarter"], reply: "Over the last three quarters your overall score moved 81 → 85 → 88. Delivery reliability and collaboration are trending up; documentation and test coverage remain your improvement areas." },
+  ],
+  employeeChatFallback: "I can only see your own performance data in this workspace. Try asking about your objectives, delivery score, or GitHub activity.",
 };
 
 // HR / analytics aggregates.
