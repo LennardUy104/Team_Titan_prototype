@@ -156,6 +156,47 @@ const UI = {
   },
 };
 
+/* ---------- Theme switcher (presentation only — cycles palette options) ---------- */
+const Theme = {
+  // Order = cycle order. `dot` is the swatch shown on the switcher button.
+  options: [
+    { id: "evergreen", name: "Evergreen", dot: "#5f9e3f" },
+    { id: "indigo",    name: "Indigo",    dot: "#5b5bd6" },
+    { id: "graphite",  name: "Graphite",  dot: "#18181b" },
+    { id: "midnight",  name: "Midnight",  dot: "#6bbf59" },
+  ],
+  key: "titan-theme",
+
+  current() {
+    let saved = null;
+    try { saved = localStorage.getItem(Theme.key); } catch (e) { /* private mode */ }
+    return Theme.options.find((t) => t.id === saved) || Theme.options[0];
+  },
+
+  apply(id) {
+    const opt = Theme.options.find((t) => t.id === id) || Theme.options[0];
+    // Evergreen is the :root default — no attribute keeps CSS clean.
+    if (opt.id === "evergreen") document.documentElement.removeAttribute("data-theme");
+    else document.documentElement.setAttribute("data-theme", opt.id);
+    try { localStorage.setItem(Theme.key, opt.id); } catch (e) { /* ignore */ }
+    const dot = document.getElementById("theme-dot");
+    const name = document.getElementById("theme-name");
+    if (dot) dot.style.background = opt.dot;
+    if (name) name.textContent = opt.name;
+  },
+
+  next() {
+    const i = Theme.options.findIndex((t) => t.id === Theme.current().id);
+    Theme.apply(Theme.options[(i + 1) % Theme.options.length].id);
+  },
+
+  init() {
+    Theme.apply(Theme.current().id);
+    const btn = document.getElementById("theme-switch");
+    if (btn) btn.addEventListener("click", Theme.next);
+  },
+};
+
 /* ---------- Modal ---------- */
 const Modal = {
   open(html) {
@@ -217,6 +258,7 @@ function boot() {
   });
   document.addEventListener("keydown", (e) => { if (e.key === "Escape") Modal.close(); });
 
+  Theme.init();
   render();
 }
 

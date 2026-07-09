@@ -25,6 +25,11 @@
   --lime: #a6ce3a;
   --lime-2: #cfe89a;
   --donut-amber: #e6a23c;
+  /* themeable brand extras (overridden per [data-theme]) */
+  --accent-strong: #2f6b2a;   /* text/icon sitting on accent-soft */
+  --on-primary: #16351f;      /* text on the primary CTA button   */
+  --on-dark: #ffffff;         /* text on dark shell / accent fills */
+  --track: #eef0f4;           /* progress + neutral chip track     */
   /* shape */
   --r-card: 14px;
   --r-btn: 9px;
@@ -63,6 +68,44 @@
   /* tracking */
   --ls-tight: -.02em;
   --ls-wide: .04em;
+}
+
+/* ============================================================
+   THEME VARIANTS — swap brand + neutral tokens only.
+   Semantic status colors (green/amber/red/blue) stay constant.
+   Layout and view logic are untouched; set via <html data-theme>.
+   ============================================================ */
+
+/* Option 2 — Indigo: modern SaaS, cool neutrals (Linear-ish) */
+:root[data-theme="indigo"] {
+  --bg: #f6f7fb; --surface: #ffffff; --surface-2: #f3f4f9; --border: #e7e8f0;
+  --text: #1e2130; --muted: #5c6479; --faint: #9aa0b5;
+  --accent: #5b5bd6; --accent-soft: #eaeafb; --accent-strong: #4343b8;
+  --green-deep: #2c2c66; --green-deep2: #23234f;
+  --lime: #5b5bd6; --lime-2: #c7c7f2; --on-primary: #ffffff;
+  --track: #ececf3;
+}
+
+/* Option 3 — Graphite: minimal monochrome (Vercel / Notion-ish) */
+:root[data-theme="graphite"] {
+  --bg: #f7f7f8; --surface: #ffffff; --surface-2: #f4f4f5; --border: #e6e6e8;
+  --text: #18181b; --muted: #6b6b74; --faint: #a1a1aa;
+  --accent: #18181b; --accent-soft: #ececed; --accent-strong: #18181b;
+  --green-deep: #18181b; --green-deep2: #09090b;
+  --lime: #18181b; --lime-2: #d4d4d8; --on-primary: #ffffff;
+  --track: #eaeaec;
+}
+
+/* Option 4 — Midnight: dark mode */
+:root[data-theme="midnight"] {
+  --bg: #0f1214; --surface: #171b1e; --surface-2: #1e2427; --border: #2a3136;
+  --text: #e6ebe8; --muted: #9aa8a0; --faint: #6b7873;
+  --accent: #6bbf59; --accent-soft: #1e3320; --accent-strong: #8fd97f;
+  --green-deep: #0c2a1f; --green-deep2: #082018;
+  --lime: #6bbf59; --lime-2: #2e5a2f; --on-primary: #0c2a1f;
+  --track: #2a3136;
+  --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 4px 16px rgba(0, 0, 0, .35);
+  --shadow-lg: 0 12px 40px rgba(0, 0, 0, .55);
 }
 
 * { box-sizing: border-box; }
@@ -107,7 +150,7 @@ body {
   font-family: inherit; transition: background .12s, color .12s;
 }
 .nav-item:hover { background: var(--surface-2); color: var(--text); }
-.nav-item.active { background: var(--accent-soft); color: #2f6b2a; font-weight: 700; }
+.nav-item.active { background: var(--accent-soft); color: var(--accent-strong); font-weight: 700; }
 .nav-item.active .nav-ico { color: var(--accent); }
 .nav-ico { width: 18px; text-align: center; font-size: 15px; }
 
@@ -130,6 +173,18 @@ body {
   padding: 6px 14px; border-radius: var(--r-pill); font-size: var(--fs-label); color: var(--muted); font-weight: var(--fw-medium);
 }
 .role-btn.active { background: var(--surface); color: var(--text); box-shadow: var(--shadow); font-weight: var(--fw-semibold); }
+
+/* theme switcher (cycles palette options) */
+.theme-switch {
+  display: inline-flex; align-items: center; gap: 8px; cursor: pointer; font-family: inherit;
+  background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--r-pill);
+  padding: 6px 12px 6px 10px; color: var(--text);
+  font-size: var(--fs-label); font-weight: var(--fw-medium); transition: border-color .12s, background .12s;
+}
+.theme-switch:hover { border-color: var(--accent); }
+.theme-switch .theme-dot { width: 14px; height: 14px; border-radius: 50%; flex-shrink: 0; box-shadow: inset 0 0 0 1px rgba(0,0,0,.08); }
+.theme-switch .theme-name { min-width: 62px; text-align: left; }
+.theme-switch .theme-caret { color: var(--faint); font-size: 10px; }
 
 .user-chip { display: flex; align-items: center; gap: 9px; }
 .avatar {
@@ -172,10 +227,10 @@ body {
 .badge.amber { background: var(--amber-soft); color: var(--amber); }
 .badge.red { background: var(--red-soft); color: var(--red); }
 .badge.blue { background: var(--blue-soft); color: var(--blue); }
-.badge.gray { background: #eef0f4; color: var(--muted); }
+.badge.gray { background: var(--track); color: var(--muted); }
 
 /* progress bar */
-.progress { height: 7px; background: #eef0f4; border-radius: var(--r-pill); overflow: hidden; }
+.progress { height: 7px; background: var(--track); border-radius: var(--r-pill); overflow: hidden; }
 .progress > span { display: block; height: 100%; border-radius: var(--r-pill); background: var(--accent); }
 .progress.green > span { background: var(--green); }
 .progress.amber > span { background: var(--amber); }
@@ -184,7 +239,7 @@ body {
 /* buttons */
 .btn { font-family: inherit; cursor: pointer; border-radius: var(--r-btn); font-size: var(--fs-button); font-weight: var(--fw-semibold); line-height: var(--lh-label); padding: 9px 15px; border: 1px solid var(--border); background: var(--surface); color: var(--text); transition: background .12s, border-color .12s; }
 .btn:hover { background: var(--surface-2); }
-.btn.primary { background: var(--lime); border-color: var(--lime); color: #16351f; }
+.btn.primary { background: var(--lime); border-color: var(--lime); color: var(--on-primary); }
 .btn.primary:hover { filter: brightness(1.04); }
 .btn.ghost { border-color: transparent; background: transparent; color: var(--accent); }
 .btn.sm { padding: 6px 11px; font-size: var(--fs-label); }
@@ -240,7 +295,7 @@ body {
 .chat { display: flex; flex-direction: column; height: 440px; }
 .chat-log { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; padding: 4px; }
 .msg { max-width: 78%; padding: 10px 14px; border-radius: 14px; font-size: var(--fs-body); line-height: var(--lh-body); white-space: pre-wrap; }
-.msg.user { align-self: flex-end; background: var(--accent); color: #fff; border-bottom-right-radius: 4px; }
+.msg.user { align-self: flex-end; background: var(--accent); color: var(--on-dark); border-bottom-right-radius: 4px; }
 .msg.bot { align-self: flex-start; background: var(--surface-2); border: 1px solid var(--border); border-bottom-left-radius: 4px; }
 .chat-suggests { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
 .chat-suggests .tag { cursor: pointer; }
@@ -274,11 +329,11 @@ input:focus, textarea:focus, select:focus { outline: none; border-color: var(--a
 
 /* hero banner (NiceAdmin welcome card) */
 .hero {
-  background: var(--green-deep); color: #fff; border-radius: var(--r-card);
+  background: var(--green-deep); color: var(--on-dark); border-radius: var(--r-card);
   padding: 26px 28px; margin-bottom: 16px; display: flex; align-items: center;
   justify-content: space-between; gap: 20px; box-shadow: var(--shadow); overflow: hidden;
 }
-.hero h2 { margin: 0 0 8px; font-size: var(--fs-page-title); font-weight: var(--fw-bold); line-height: var(--lh-heading); letter-spacing: var(--ls-tight); color: #fff; }
+.hero h2 { margin: 0 0 8px; font-size: var(--fs-page-title); font-weight: var(--fw-bold); line-height: var(--lh-heading); letter-spacing: var(--ls-tight); color: var(--on-dark); }
 .hero p { margin: 0 0 16px; color: rgba(255, 255, 255, .82); font-size: var(--fs-body); line-height: var(--lh-body); max-width: 520px; }
 .hero-glyph { font-size: 60px; line-height: 1; opacity: .95; }
 @media (max-width: 700px) { .hero-glyph { display: none; } .hero { padding: 22px; } }
