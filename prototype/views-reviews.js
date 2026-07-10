@@ -5,7 +5,8 @@ window.Views = window.Views || {};
 window.ViewsWire = window.ViewsWire || {};
 
 // Local UI state for the giving-feedback view (resets on reload — fine for a prototype).
-const ReviewState = { subjectIdx: 0, decisions: {}, override: "88" };
+// insightsShown: AI Insights are generated on demand, per selected member (not automatic).
+const ReviewState = { subjectIdx: 0, override: "", insightsShown: false, feedbackText: "" };
 
 // "My Feedback" — feedback the signed-in user has received.
 window.Views["my-feedback"] = function (role) {
@@ -177,35 +178,45 @@ function scheduleEval() {
   toast(`Feedback scheduled for ${subject} on ${UI.fmtDateTime(date, time)}.`);
 }
 
+// AI Insights = objective, AI-gathered data & observations to help the leader —
+// NOT feedback to hand the employee. Derived from the member's own objectives + evidence.
+function renderInsights(subject) {
+  const objs = DB.OBJECTIVES.filter((o) => o.owner === subject.name);
+  if (!objs.length) return `<div class="empty">No objective data available for ${UI.esc(subject.name)} yet.</div>`;
+
+  const avg = Math.round(objs.reduce((a, o) => a + o.progress, 0) / objs.length);
+  const onTrack = objs.filter((o) => o.status === "on-track").length;
+  const atRisk = objs.filter((o) => o.status === "at-risk").length;
+  const facts = [
+    `${objs.length} active objective${objs.length === 1 ? "" : "s"} · average progress ${avg}%`,
+    `${onTrack} on track · ${atRisk} at risk`,
+    ...objs.map((o) => `${o.title}: ${o.progress}% (${o.status.replace("-", " ")})`),
+    ...objs.flatMap((o) => o.evidence.map((e) => `${e.text} — ${e.src}`)).slice(0, 6),
+  ];
+  const bullets = facts.map((t) => `<li><span class="ck">✓</span> ${UI.esc(t)}</li>`).join("");
+  return `<ul class="check-list">${bullets}</ul>
+    <div class="small muted" style="margin-top:8px">Objective data gathered by AI. Use it to inform the feedback you write below — AI does not draft feedback.</div>`;
+}
+
 function teamEditor(subject) {
   const mr = DB.MANAGER_REVIEW;
-  const items = mr.suggestions.map((s) => {
-    const decision = ReviewState.decisions[s.id];
-    const badge = decision === "accepted" ? '<span class="badge green">Accepted</span>'
-                : decision === "rejected" ? '<span class="badge red">Rejected</span>' : "";
-    return `
-      <div class="row-item" data-sugg="${s.id}">
-        <span style="flex:1">
-          <span class="tag" style="margin-right:8px">${s.tone === "strength" ? "Strength" : "Improvement"}</span>
-          ${UI.esc(s.text)} ${badge}
-        </span>
-        <span class="row" style="gap:6px">
-          <button class="btn sm success" data-accept="${s.id}">Accept</button>
-          <button class="btn sm danger" data-reject="${s.id}">Reject</button>
-        </span>
-      </div>`;
-  }).join("");
+  const insightsBody = ReviewState.insightsShown
+    ? renderInsights(subject)
+    : `<div class="empty" style="padding:22px">Click <strong>Generate AI Insights</strong> to gather supporting data and observations for ${UI.esc(subject.name)}.
+        <div class="small muted" style="margin-top:6px">AI gathers facts only — you write the feedback.</div></div>`;
 
   return `<div class="card">
     <div class="card-title">Give Feedback: ${UI.esc(subject.name)} <span class="hint">${UI.esc(mr.period)}</span></div>
-    <div class="small muted" style="margin-bottom:10px">Go through each AI suggestion, set a final score, then finalize.</div>
-    ${items}
-    <div class="divider"></div>
-    <div class="row" style="gap:16px;align-items:flex-end">
-      <div style="text-align:center"><div class="small muted">AI score</div><div class="stat-value" style="color:var(--accent)">${mr.aiScore}</div></div>
-      <div style="flex:1"><label class="small muted">Final score</label><input type="number" id="override" value="${UI.esc(ReviewState.override)}" min="0" max="100" /></div>
+
+    <div class="spread" style="margin-bottom:10px">
+      <span class="ai-tag">✦ AI Insights</span>
+      <button class="btn sm" id="gen-insights">${ReviewState.insightsShown ? "↻ Regenerate" : "✦ Generate AI Insights"}</button>
     </div>
-    <div class="field" style="margin-top:12px"><label>Manual Feedback</label><textarea placeholder="Add leader comments…"></textarea></div>
+    ${insightsBody}
+
+    <div class="divider"></div>
+    <div class="field"><label>Final score</label><input type="number" id="override" value="${UI.esc(ReviewState.override)}" min="0" max="100" placeholder="Enter score (0–100)" /></div>
+    <div class="field"><label>Your Feedback</label><textarea id="leader-feedback" placeholder="Write your feedback for ${UI.esc(subject.name)}…">${UI.esc(ReviewState.feedbackText)}</textarea></div>
     <div class="modal-foot"><button class="btn primary" id="finalize">Finalize Feedback</button></div>
   </div>`;
 }
@@ -242,17 +253,21 @@ function wireTeam() {
       if (!Number.isNaN(idx)) selectSubject(idx);
     }));
 
-  // Delegated clicks on the per-render wrapper: objective detail + accept/reject.
+  // Delegated clicks on the per-render wrapper: open an objective's detail modal.
   document.getElementById("feedback-body").addEventListener("click", (e) => {
     const obj = e.target.closest("[data-obj]");
-    if (obj) { openDetailModal(Number(obj.dataset.obj)); return; }
-    const a = e.target.closest("[data-accept]"), r = e.target.closest("[data-reject]");
-    if (a) { ReviewState.decisions[a.dataset.accept] = "accepted"; rerender(); }
-    else if (r) { ReviewState.decisions[r.dataset.reject] = "rejected"; rerender(); }
+    if (obj) openDetailModal(Number(obj.dataset.obj));
   });
 
+  // Generate AI Insights on demand (not automatic).
+  const gen = document.getElementById("gen-insights");
+  if (gen) gen.addEventListener("click", () => { ReviewState.insightsShown = true; rerender(); });
+
+  // Preserve the leader's in-progress inputs across re-renders (e.g. when generating insights).
   const ov = document.getElementById("override");
-  if (ov) ov.addEventListener("change", () => { ReviewState.override = ov.value; });
+  if (ov) ov.addEventListener("input", () => { ReviewState.override = ov.value; });
+  const fb = document.getElementById("leader-feedback");
+  if (fb) fb.addEventListener("input", () => { ReviewState.feedbackText = fb.value; });
 
   const fin = document.getElementById("finalize");
   if (fin) fin.addEventListener("click", finalizeCurrent);
@@ -274,18 +289,25 @@ function wireTeam() {
 
 function selectSubject(idx) {
   ReviewState.subjectIdx = idx;
-  ReviewState.decisions = {};
+  ReviewState.insightsShown = false; // fresh member → leader regenerates insights explicitly
+  ReviewState.feedbackText = "";
   const m = DB.TEAM_EVALUATIONS[idx];
-  ReviewState.override = m.score != null ? String(m.score) : String(DB.MANAGER_REVIEW.aiScore);
+  ReviewState.override = m.score != null ? String(m.score) : ""; // no AI-suggested score
   rerender();
 }
 
 function finalizeCurrent() {
   const m = DB.TEAM_EVALUATIONS[ReviewState.subjectIdx];
+  const score = Number(ReviewState.override);
+  if (ReviewState.override === "" || Number.isNaN(score) || score < 0 || score > 100) {
+    toast("Enter a final score (0–100) before finalizing."); return;
+  }
+  if (!ReviewState.feedbackText.trim()) {
+    toast("Write your feedback before finalizing — AI insights don't replace your words."); return;
+  }
   m.status = "finalized";
-  m.score = Number(ReviewState.override) || DB.MANAGER_REVIEW.aiScore;
-  const n = Object.keys(ReviewState.decisions).length;
-  toast(`Feedback finalized for ${m.name} · ${n} AI comments reviewed · final score ${m.score}`);
+  m.score = score;
+  toast(`Feedback finalized for ${m.name} · final score ${m.score}`);
   rerender();
 }
 
