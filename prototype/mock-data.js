@@ -103,6 +103,49 @@ const OBJECTIVES = [
     ],
     evidence: [],
   },
+  // --- Leader's own (personal) objectives — owner: Andre Uy ---
+  {
+    id: 107, title: "Grow Delivery Predictability", owner: "Andre Uy", ownerInitials: "AU",
+    weight: 30, progress: 72, status: "on-track", target: "2026-09-30", period: "Q3 2026",
+    description: "Improve the team's on-time delivery and cut milestone slippage.",
+    criteria: [
+      { text: "Team on-time delivery ≥ 90%", done: true },
+      { text: "Sprint carryover < 10%", done: false },
+      { text: "No critical milestone missed", done: true },
+    ],
+    evidence: [
+      { src: "Backlog", text: "Team on-time delivery at 88% this quarter" },
+      { src: "Backlog", text: "Sprint carryover trending down: 18% → 12%" },
+    ],
+  },
+  {
+    id: 108, title: "Strengthen Team Health", owner: "Andre Uy", ownerInitials: "AU",
+    weight: 35, progress: 58, status: "at-risk", target: "2026-09-30", period: "Q3 2026",
+    description: "Support engagement, growth, and retention across the team.",
+    criteria: [
+      { text: "Biweekly 1:1s with every report", done: true },
+      { text: "Team eNPS ≥ 40", done: false },
+      { text: "Zero regretted attrition", done: true },
+    ],
+    evidence: [
+      { src: "Slack",   text: "1:1 cadence held with all 6 reports" },
+      { src: "Backlog", text: "Latest team eNPS measured at 34" },
+    ],
+  },
+  {
+    id: 109, title: "Raise Engineering Quality Bar", owner: "Andre Uy", ownerInitials: "AU",
+    weight: 35, progress: 80, status: "on-track", target: "2026-09-30", period: "Q3 2026",
+    description: "Drive quality practices across the team through faster reviews and fewer incidents.",
+    criteria: [
+      { text: "PR review turnaround < 1 day", done: true },
+      { text: "Production incidents down 20%", done: true },
+      { text: "Test coverage ≥ 80%", done: false },
+    ],
+    evidence: [
+      { src: "GitHub",  text: "Median PR review turnaround at 14 hours" },
+      { src: "Backlog", text: "Production incidents down 23% quarter-over-quarter" },
+    ],
+  },
 ];
 
 // Peer review requests + history.
@@ -140,7 +183,7 @@ const AI = {
     strengths: ["Strong collaboration", "Reliable delivery", "High code review participation"],
     improvements: ["Documentation", "Test coverage", "Response time"],
   },
-  reports: ["Monthly Report", "Quarterly Report", "Annual Evaluation", "Self-Assessment Draft", "Manager Assessment Draft"],
+  reports: ["Monthly Report", "Quarterly Report", "Annual Feedback", "Self-Assessment Draft", "Manager Assessment Draft"],
   // Canned chat responses keyed by a matched keyword.
   chatSuggestions: [
     "Show John's accomplishments for Q2",
@@ -198,7 +241,7 @@ const DISTRIBUTION = [
 const KPI_TRENDS = [
   { label: "Objective completion", value: "78%", delta: "+6%", up: true },
   { label: "Avg peer rating",       value: "4.3", delta: "+0.2", up: true },
-  { label: "Evaluations on time",   value: "91%", delta: "+3%", up: true },
+  { label: "Feedback on time",   value: "91%", delta: "+3%", up: true },
   { label: "Low-performance flags", value: "6",   delta: "-2",  up: true },
 ];
 
@@ -243,8 +286,8 @@ const TEAM_EVALUATIONS = [
 
 // Leader-scheduled evaluations (calendar feature). Mutated in-session on schedule/remove.
 const SCHEDULED_EVALUATIONS = [
-  { id: 301, subject: "Maria Santos", subjectInitials: "MS", date: "2026-07-15", time: "09:00", durationMin: 30, notes: "Q3 performance evaluation" },
-  { id: 302, subject: "John Cruz",    subjectInitials: "JC", date: "2026-07-18", time: "14:00", durationMin: 30, notes: "Q3 performance evaluation" },
+  { id: 301, subject: "Maria Santos", subjectInitials: "MS", date: "2026-07-15", time: "09:00", durationMin: 30, notes: "Q3 performance feedback" },
+  { id: 302, subject: "John Cruz",    subjectInitials: "JC", date: "2026-07-18", time: "14:00", durationMin: 30, notes: "Q3 performance feedback" },
 ];
 
 // Mocked Google Calendar connection state (no real OAuth in the prototype).

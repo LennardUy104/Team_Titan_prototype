@@ -2,63 +2,36 @@
 window.Views = window.Views || {};
 window.ViewsWire = window.ViewsWire || {};
 
-// Leader-only filter state (employee always scoped to self). Resets fine on reload.
-const ObjectiveState = { owner: "all" };
-
+// "My Objectives" is personal for BOTH roles — each user sees only their own objectives.
+// (A leader's view of team objectives now lives in the Feedback tab's workflow.)
 window.Views.objectives = function (role) {
-  const isLeader = role === "leader";
-
-  // Scope the list: employee sees own only; leader sees all (optionally filtered).
-  let list = DB.OBJECTIVES;
-  if (!isLeader) {
-    list = DB.OBJECTIVES.filter((o) => o.owner === DB.CURRENT_USER.employee.name);
-  } else if (ObjectiveState.owner !== "all") {
-    list = DB.OBJECTIVES.filter((o) => o.owner === ObjectiveState.owner);
-  }
+  const me = DB.CURRENT_USER[role].name;
+  const list = DB.OBJECTIVES.filter((o) => o.owner === me);
 
   const rows = list.map((o) => `
     <tr class="clickable" data-obj="${o.id}">
       <td><strong>${UI.esc(o.title)}</strong><br><small class="muted">${UI.esc(o.period)}</small></td>
-      <td>${UI.who(o.owner, o.ownerInitials)}</td>
       <td>${o.weight}%</td>
       <td>${o.target}</td>
       <td style="min-width:150px">${UI.progress(o.progress, o.status)}<div class="right small muted" style="margin-top:4px">${o.progress}%</div></td>
       <td>${UI.statusBadge(o.status)}</td>
-    </tr>`).join("") || `<tr><td colspan="6"><div class="empty">No objectives found</div></td></tr>`;
-
-  // Leader gets an employee-name filter; employee does not.
-  const owners = [...new Set(DB.OBJECTIVES.map((o) => o.owner))].sort();
-  const filter = isLeader ? `
-    <select id="obj-filter" style="width:auto;min-width:180px">
-      <option value="all">All employees</option>
-      ${owners.map((n) => `<option value="${UI.esc(n)}" ${ObjectiveState.owner === n ? "selected" : ""}>${UI.esc(n)}</option>`).join("")}
-    </select>` : "";
-
-  const title = isLeader ? "All Objectives" : "My Objectives";
+    </tr>`).join("") || `<tr><td colspan="5"><div class="empty">No objectives yet</div></td></tr>`;
 
   return `
     <div class="section-head">
-      <div><h2 class="mb-0">${title}</h2><div class="small muted">${list.length} objective${list.length === 1 ? "" : "s"} · Q3 2026</div></div>
-      <div class="row" style="gap:10px">${filter}<button class="btn primary" id="btn-create-obj">+ Create Objective</button></div>
+      <div><h2 class="mb-0">My Objectives</h2><div class="small muted">${list.length} objective${list.length === 1 ? "" : "s"} · Q3 2026</div></div>
+      <div class="row" style="gap:10px"><button class="btn primary" id="btn-create-obj">+ Create Objective</button></div>
     </div>
     <div class="card" style="padding:6px 6px">
       <table class="table">
-        <thead><tr><th>Objective</th><th>Owner</th><th>Weight</th><th>Target</th><th>Progress</th><th>Status</th></tr></thead>
+        <thead><tr><th>Objective</th><th>Weight</th><th>Target</th><th>Progress</th><th>Status</th></tr></thead>
         <tbody>${rows}</tbody>
       </table>
     </div>`;
 };
 
-window.ViewsWire.objectives = function (role) {
+window.ViewsWire.objectives = function () {
   document.getElementById("btn-create-obj").addEventListener("click", openCreateModal);
-
-  const filter = document.getElementById("obj-filter");
-  if (filter) filter.addEventListener("change", () => {
-    ObjectiveState.owner = filter.value;
-    document.getElementById("content").innerHTML = window.Views.objectives(role);
-    window.ViewsWire.objectives(role);
-  });
-
   document.querySelectorAll("tr[data-obj]").forEach((tr) =>
     tr.addEventListener("click", () => openDetailModal(Number(tr.dataset.obj))));
 };

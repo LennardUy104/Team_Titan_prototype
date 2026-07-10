@@ -25,17 +25,20 @@
       </div>
       <div class="nav-section">Workspace</div>
       <nav class="nav" id="nav">
-        <button class="nav-item active" data-view="dashboard">
-          <span class="nav-ico">▤</span> Dashboard
+        <button class="nav-item active" data-view="analytics">
+          <span class="nav-ico">▦</span> Analytics
         </button>
         <button class="nav-item" data-view="objectives">
-          <span class="nav-ico">◎</span> Objectives
+          <span class="nav-ico">◎</span> My Objectives
         </button>
         <button class="nav-item" data-view="ai">
           <span class="nav-ico">✦</span> AI Assistant
         </button>
-        <button class="nav-item" data-view="reviews">
-          <span class="nav-ico">✓</span> Reviews
+        <button class="nav-item" data-view="my-feedback">
+          <span class="nav-ico">✓</span> My Feedback
+        </button>
+        <button class="nav-item" data-view="feedback">
+          <span class="nav-ico">✎</span> Feedback
         </button>
       </nav>
       <div class="sidebar-foot">
@@ -47,7 +50,7 @@
     <!-- Main -->
     <div class="main">
       <header class="topbar">
-        <div class="topbar-title" id="topbar-title">Dashboard</div>
+        <div class="topbar-title" id="topbar-title">Analytics</div>
         <div class="topbar-right">
           <button class="theme-switch" id="theme-switch" title="Change the look — cycle theme options">
             <span class="theme-dot" id="theme-dot"></span>
@@ -76,7 +79,7 @@
 
   <!-- Data first, then view modules, then the app controller -->
   <script src="mock-data.js"></script>
-  <script src="views-dashboard.js"></script>
+  <script src="views-analytics.js"></script>
   <script src="views-objectives.js"></script>
   <script src="views-ai.js"></script>
   <script src="views-reviews.js"></script>

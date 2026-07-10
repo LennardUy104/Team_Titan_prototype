@@ -1,20 +1,21 @@
-/* Titan prototype — Reviews view. Role-aware.
-   Employee: read-only "My Evaluation" + history.
-   Leader:   tabs → Team Evaluations (give/finalize) + My Evaluation (received). */
+/* Titan prototype — Feedback module. Role-aware, split into two top-level views:
+   My Feedback (received)              — both roles.
+   Feedback (give feedback to team)    — leader only (nav-gated in app.js). */
 window.Views = window.Views || {};
 window.ViewsWire = window.ViewsWire || {};
 
-// Local UI state (resets on reload — fine for a prototype).
-const ReviewState = { tab: "team", subjectIdx: 0, decisions: {}, override: "88" };
+// Local UI state for the giving-feedback view (resets on reload — fine for a prototype).
+const ReviewState = { subjectIdx: 0, decisions: {}, override: "88" };
 
-window.Views.reviews = function (role) {
-  if (role !== "leader") return receivedView("employee");
-  return `
-    <div class="role-switch" style="margin-bottom:18px">
-      <button class="role-btn ${ReviewState.tab === "team" ? "active" : ""}" data-tab="team">Team Evaluations</button>
-      <button class="role-btn ${ReviewState.tab === "received" ? "active" : ""}" data-tab="received">My Evaluation</button>
-    </div>
-    <div id="review-body">${ReviewState.tab === "team" ? teamView() : receivedView("leader")}</div>`;
+// "My Feedback" — feedback the signed-in user has received.
+window.Views["my-feedback"] = function (role) {
+  return receivedView(role);
+};
+
+// "Feedback" — leader gives / finalizes feedback for their team.
+// Wrapped in a fresh #feedback-body each render so delegated listeners don't stack.
+window.Views["feedback"] = function () {
+  return `<div id="feedback-body">${teamView()}</div>`;
 };
 
 /* ---------- Received evaluation (read-only) — shared by both roles ---------- */
@@ -28,7 +29,7 @@ function receivedEvalCard(rec, opts) {
     <div class="card eval-readonly">
       <div class="spread" style="align-items:flex-start">
         <div>
-          <div class="card-title" style="margin:0">Evaluated by ${UI.esc(rec.evaluator)}${evalRole}</div>
+          <div class="card-title" style="margin:0">Feedback by ${UI.esc(rec.evaluator)}${evalRole}</div>
           <div class="small muted" style="margin-top:4px">Period ${UI.esc(rec.period)} · Finalized ${UI.esc(rec.finalizedOn)}</div>
         </div>
         <span class="badge green">Finalized</span>
@@ -56,18 +57,18 @@ function historyList(rec) {
     <div class="row-item">
       <span>${UI.esc(h.period)} · <strong>Score ${h.finalScore}</strong> <span class="muted">· by ${UI.esc(h.evaluator)}</span></span>
       <button class="btn sm" data-hist="${i}">View</button>
-    </div>`).join("") || `<div class="empty">No previous evaluations.</div>`;
-  return `<div class="card"><div class="card-title">Evaluation History</div>${rows}</div>`;
+    </div>`).join("") || `<div class="empty">No previous feedback.</div>`;
+  return `<div class="card"><div class="card-title">Feedback History</div>${rows}</div>`;
 }
 
 function receivedView(role) {
   const rec = DB.RECEIVED_EVALUATIONS[DB.CURRENT_USER[role].name];
   if (!rec) {
-    return `<div class="card"><div class="card-title">My Evaluation</div>
-      <div class="empty">📋 No evaluation yet. Your leader hasn't finalized your review for this period.</div></div>`;
+    return `<div class="card"><div class="card-title">My Feedback</div>
+      <div class="empty">📋 No feedback yet. Your leader hasn't finalized your feedback for this period.</div></div>`;
   }
   return `<div class="stack">
-    <div class="section-head"><h2 class="mb-0">My Evaluation</h2></div>
+    <div class="section-head"><h2 class="mb-0">My Feedback</h2></div>
     ${receivedEvalCard(rec)}
     ${historyList(rec)}
   </div>`;
@@ -80,20 +81,49 @@ function statusBadgeFor(m) {
   return `<span class="badge gray">Not started</span>`;
 }
 
+// The selected team member's objectives — context for giving feedback.
+// Rows open the read-only objective detail modal (openDetailModal, from views-objectives.js).
+function memberObjectives(subject) {
+  const objs = DB.OBJECTIVES.filter((o) => o.owner === subject.name);
+  const body = objs.length ? objs.map((o) => `
+    <div class="row-item clickable" data-obj="${o.id}">
+      <span style="flex:1">
+        <strong>${UI.esc(o.title)}</strong>
+        <br><small class="muted">${UI.esc(o.period)} · weight ${o.weight}%</small>
+      </span>
+      <span style="width:160px;flex-shrink:0">
+        ${UI.progress(o.progress, o.status)}
+        <div class="spread small muted" style="margin-top:5px"><span>${o.progress}%</span>${UI.statusBadge(o.status)}</div>
+      </span>
+    </div>`).join("")
+    : `<div class="empty">No objectives assigned to ${UI.esc(subject.name)} yet.</div>`;
+  return `<div class="card">
+    <div class="card-title">${UI.esc(subject.name)}'s Objectives <span class="hint">${objs.length} total</span></div>
+    ${body}
+  </div>`;
+}
+
 function teamView() {
   const list = DB.TEAM_EVALUATIONS;
+  const subject = list[ReviewState.subjectIdx];
   const rows = list.map((m, i) => {
     const sel = i === ReviewState.subjectIdx ? ' style="background:var(--surface-2)"' : "";
     const tag = m.peerLeader ? ' <span class="tag">Leader</span>' : "";
     return `<div class="row-item clickable" data-subj="${i}"${sel}>
       <span>${UI.who(m.name, m.initials, m.role)}${tag}</span>
-      <span class="row" style="gap:10px">${statusBadgeFor(m)}<button class="btn sm" data-subj-btn="${i}">Evaluate</button></span>
+      <span class="row" style="gap:10px">${statusBadgeFor(m)}<button class="btn sm" data-subj-btn="${i}">Give Feedback</button></span>
     </div>`;
-  }).join("");
+  }).join("") || `<div class="empty">No team members to give feedback to.</div>`;
+
+  // Right column stacks the member's objectives (context) above the feedback editor.
+  const right = subject
+    ? `<div class="stack">${memberObjectives(subject)}${teamEditor(subject)}</div>`
+    : `<div class="card"><div class="empty">Select a team member to give feedback.</div></div>`;
+
   return `
     <div class="grid grid-2">
       <div class="card"><div class="card-title">Your Team</div>${rows}</div>
-      ${teamEditor(list[ReviewState.subjectIdx])}
+      ${right}
     </div>
     ${scheduleCard()}`;
 }
@@ -112,19 +142,19 @@ function scheduleCard() {
       <div class="row-item">
         <span>${UI.who(s.subject, s.subjectInitials)}<br><small class="muted">${UI.fmtDateTime(s.date, s.time)} · ${s.durationMin}m</small></span>
         <span class="row" style="gap:8px">
-          <a class="btn sm" href="${UI.googleCalUrl("Performance Evaluation · " + s.subject, s.date, s.time, s.durationMin, s.notes, g.account)}" target="_blank" rel="noopener">📅 Add to Google Calendar</a>
+          <a class="btn sm" href="${UI.googleCalUrl("Performance Feedback · " + s.subject, s.date, s.time, s.durationMin, s.notes, g.account)}" target="_blank" rel="noopener">📅 Add to Google Calendar</a>
           <button class="btn sm danger" data-unschedule="${s.id}">Remove</button>
         </span>
       </div>`).join("")
-    : `<div class="empty">No evaluations scheduled.</div>`;
+    : `<div class="empty">No feedback sessions scheduled.</div>`;
 
   return `<div class="card" style="margin-top:16px">
-    <div class="card-title">Scheduled Evaluations <span class="hint">${chip}</span></div>
+    <div class="card-title">Scheduled Feedback <span class="hint">${chip}</span></div>
     <div class="row" style="gap:10px;flex-wrap:wrap;align-items:flex-end;margin-bottom:14px">
       <div class="field" style="margin:0;flex:1;min-width:150px"><label>Team member</label><select id="sched-subject">${subjectOpts}</select></div>
       <div class="field" style="margin:0"><label>Date</label><input type="date" id="sched-date" value="2026-07-20" /></div>
       <div class="field" style="margin:0"><label>Time</label><input type="time" id="sched-time" value="10:00" /></div>
-      <div class="field" style="margin:0;flex:1;min-width:150px"><label>Notes</label><input type="text" id="sched-notes" placeholder="Q3 performance evaluation" /></div>
+      <div class="field" style="margin:0;flex:1;min-width:150px"><label>Notes</label><input type="text" id="sched-notes" placeholder="Q3 performance feedback" /></div>
       <button class="btn primary" id="sched-add">Schedule</button>
     </div>
     ${rows}
@@ -135,7 +165,7 @@ function scheduleEval() {
   const subject = document.getElementById("sched-subject").value;
   const date = document.getElementById("sched-date").value;
   const time = document.getElementById("sched-time").value;
-  const notes = document.getElementById("sched-notes").value || "Q3 performance evaluation";
+  const notes = document.getElementById("sched-notes").value || "Q3 performance feedback";
   if (!subject || !date || !time) { toast("Pick a team member, date, and time."); return; }
   const m = DB.TEAM_EVALUATIONS.find((x) => x.name === subject);
   DB.SCHEDULED_EVALUATIONS.push({
@@ -144,7 +174,7 @@ function scheduleEval() {
     date, time, durationMin: 30, notes,
   });
   rerender();
-  toast(`Evaluation scheduled for ${subject} on ${UI.fmtDateTime(date, time)}.`);
+  toast(`Feedback scheduled for ${subject} on ${UI.fmtDateTime(date, time)}.`);
 }
 
 function teamEditor(subject) {
@@ -167,8 +197,8 @@ function teamEditor(subject) {
   }).join("");
 
   return `<div class="card">
-    <div class="card-title">Evaluate: ${UI.esc(subject.name)} <span class="hint">${UI.esc(mr.period)}</span></div>
-    <div class="small muted" style="margin-bottom:10px">Review each AI suggestion, set a final score, then finalize.</div>
+    <div class="card-title">Give Feedback: ${UI.esc(subject.name)} <span class="hint">${UI.esc(mr.period)}</span></div>
+    <div class="small muted" style="margin-bottom:10px">Go through each AI suggestion, set a final score, then finalize.</div>
     ${items}
     <div class="divider"></div>
     <div class="row" style="gap:16px;align-items:flex-end">
@@ -176,37 +206,35 @@ function teamEditor(subject) {
       <div style="flex:1"><label class="small muted">Final score</label><input type="number" id="override" value="${UI.esc(ReviewState.override)}" min="0" max="100" /></div>
     </div>
     <div class="field" style="margin-top:12px"><label>Manual Feedback</label><textarea placeholder="Add leader comments…"></textarea></div>
-    <div class="modal-foot"><button class="btn primary" id="finalize">Finalize Evaluation</button></div>
+    <div class="modal-foot"><button class="btn primary" id="finalize">Finalize Feedback</button></div>
   </div>`;
 }
 
 /* ---------- Wiring ---------- */
-window.ViewsWire.reviews = function (role) {
-  // Tabs (leader only)
-  document.querySelectorAll("[data-tab]").forEach((b) =>
-    b.addEventListener("click", () => { ReviewState.tab = b.dataset.tab; rerender(); }));
-
-  // Acknowledge on the current received card
+// "My Feedback" (received) — acknowledge + history modal.
+window.ViewsWire["my-feedback"] = function (role) {
   const ack = document.getElementById("ack-eval");
-  if (ack) ack.addEventListener("click", () => toast("Evaluation acknowledged"));
+  if (ack) ack.addEventListener("click", () => toast("Feedback acknowledged"));
 
-  // History "View" → read-only modal
   const rec = DB.RECEIVED_EVALUATIONS[DB.CURRENT_USER[role].name];
+  if (!rec) return;
   document.querySelectorAll("[data-hist]").forEach((b) =>
     b.addEventListener("click", () => {
       const h = rec.history[Number(b.dataset.hist)];
       Modal.open(`
-        <div class="modal-head"><h3>Evaluation · ${UI.esc(h.period)}</h3><button class="close" data-close>×</button></div>
+        <div class="modal-head"><h3>Feedback · ${UI.esc(h.period)}</h3><button class="close" data-close>×</button></div>
         ${receivedEvalCard(h, { inModal: true })}
         <div class="modal-foot"><button class="btn primary" data-close>Close</button></div>`);
     }));
+};
 
-  // Team editor (leader + team tab only)
-  if (role === "leader" && ReviewState.tab === "team") wireTeam();
+// "Feedback" (giving) — leader only.
+window.ViewsWire["feedback"] = function () {
+  wireTeam();
 };
 
 function wireTeam() {
-  // Select a subject (row or Evaluate button)
+  // Select a subject (row or Give Feedback button)
   document.querySelectorAll("[data-subj], [data-subj-btn]").forEach((el) =>
     el.addEventListener("click", () => {
       const raw = el.dataset.subj != null ? el.dataset.subj : el.dataset.subjBtn;
@@ -214,8 +242,10 @@ function wireTeam() {
       if (!Number.isNaN(idx)) selectSubject(idx);
     }));
 
-  // Accept / reject AI suggestions (delegated)
-  document.getElementById("review-body").addEventListener("click", (e) => {
+  // Delegated clicks on the per-render wrapper: objective detail + accept/reject.
+  document.getElementById("feedback-body").addEventListener("click", (e) => {
+    const obj = e.target.closest("[data-obj]");
+    if (obj) { openDetailModal(Number(obj.dataset.obj)); return; }
     const a = e.target.closest("[data-accept]"), r = e.target.closest("[data-reject]");
     if (a) { ReviewState.decisions[a.dataset.accept] = "accepted"; rerender(); }
     else if (r) { ReviewState.decisions[r.dataset.reject] = "rejected"; rerender(); }
@@ -255,14 +285,16 @@ function finalizeCurrent() {
   m.status = "finalized";
   m.score = Number(ReviewState.override) || DB.MANAGER_REVIEW.aiScore;
   const n = Object.keys(ReviewState.decisions).length;
-  toast(`Evaluation finalized for ${m.name} · ${n} AI comments reviewed · final score ${m.score}`);
+  toast(`Feedback finalized for ${m.name} · ${n} AI comments reviewed · final score ${m.score}`);
   rerender();
 }
 
+// Re-render whichever feedback view is active (my-feedback | feedback).
 function rerender() {
   const role = window.App.role;
-  document.getElementById("content").innerHTML = window.Views.reviews(role);
-  window.ViewsWire.reviews(role);
+  const view = window.App.view;
+  document.getElementById("content").innerHTML = window.Views[view](role);
+  window.ViewsWire[view](role);
 }
 
 // Lightweight toast via the modal host.

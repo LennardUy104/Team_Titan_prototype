@@ -5,7 +5,7 @@ const App = {
   role: (function () {
     try { return localStorage.getItem("titan-role") || "employee"; } catch (e) { return "employee"; }
   })(),
-  view: "dashboard",    // dashboard | objectives | ai | reviews
+  view: "analytics",    // analytics | objectives | ai | my-feedback | feedback
 };
 
 /* ---------- Shared UI helpers (used by every view module) ---------- */
@@ -142,7 +142,7 @@ const UI = {
     const stamp = (dt) => `${dt.getFullYear()}${pad(dt.getMonth() + 1)}${pad(dt.getDate())}T${pad(dt.getHours())}${pad(dt.getMinutes())}00`;
     const params = [
       "action=TEMPLATE",
-      `text=${encodeURIComponent(title || "Performance Evaluation")}`,
+      `text=${encodeURIComponent(title || "Performance Feedback")}`,
       `dates=${stamp(start)}/${stamp(end)}`,
       `details=${encodeURIComponent(details || "")}`,
     ];
@@ -213,9 +213,21 @@ const Modal = {
 };
 
 /* ---------- Rendering ---------- */
-const VIEW_TITLES = { dashboard: "Dashboard", objectives: "Objectives", ai: "AI Assistant", reviews: "Reviews" };
+const VIEW_TITLES = {
+  analytics: "Analytics",
+  objectives: "My Objectives",
+  ai: "AI Assistant",
+  "my-feedback": "My Feedback",
+  feedback: "Feedback",
+};
 
 function render() {
+  // "Feedback" (giving feedback to others) is leader-only.
+  const feedbackNav = document.querySelector('.nav-item[data-view="feedback"]');
+  if (feedbackNav) feedbackNav.style.display = App.role === "leader" ? "" : "none";
+  // Guard: an employee must never sit on the giving-feedback view.
+  if (App.role !== "leader" && App.view === "feedback") App.view = "my-feedback";
+
   document.getElementById("topbar-title").textContent = VIEW_TITLES[App.view];
 
   // sync nav active state

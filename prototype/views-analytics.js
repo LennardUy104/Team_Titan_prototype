@@ -1,9 +1,10 @@
-/* Titan prototype — Dashboard view. Role-aware: employee / leader. */
+/* Titan prototype — Analytics view. Consolidates graphs + performance metrics
+   into one insights-focused screen. Role-aware: employee (personal) / leader (team + org). */
 window.Views = window.Views || {};
 window.ViewsWire = window.ViewsWire || {};
 
-window.Views.dashboard = function (role) {
-  return role === "leader" ? leaderDash() : employeeDash();
+window.Views.analytics = function (role) {
+  return role === "leader" ? leaderAnalytics() : employeeAnalytics();
 };
 
 // Donut segment colors keyed by performance band.
@@ -14,9 +15,9 @@ const BAND_COLORS = {
   "At Risk": "var(--red)",
 };
 
-// Objective status mix -> insight-bar segments.
-function objectiveStatusMix() {
-  const by = (s) => DB.OBJECTIVES.filter((o) => o.status === s).length;
+// Objective status mix -> insight-bar segments (over a given objective list).
+function statusMix(objectives) {
+  const by = (s) => objectives.filter((o) => o.status === s).length;
   return [
     { label: "On track",  value: by("on-track"),  color: "var(--green-deep)" },
     { label: "At risk",   value: by("at-risk"),   color: "var(--donut-amber)" },
@@ -25,71 +26,50 @@ function objectiveStatusMix() {
   ];
 }
 
-/* ---------- Employee ---------- */
-function employeeDash() {
-  const me = DB.CURRENT_USER.employee;
-  const mine = DB.OBJECTIVES.filter((o) => o.owner === "Abdul Palala");
-  const cards = mine.map((o) => `
-    <div class="card">
-      <div class="spread">
-        <strong>${UI.esc(o.title)}</strong>${UI.statusBadge(o.status)}
-      </div>
-      <div class="row small muted" style="margin:8px 0 12px;gap:16px">
-        <span>Weight ${o.weight}%</span><span>Due ${o.target}</span>
-      </div>
-      ${UI.progress(o.progress, o.status)}
-      <div class="right small muted" style="margin-top:6px">${o.progress}%</div>
+// Compact objective progress rows (title + weight/due + progress bar + status).
+function objectiveProgressRows(objectives) {
+  return objectives.map((o) => `
+    <div class="row-item">
+      <span style="flex:1"><strong>${UI.esc(o.title)}</strong><br><small class="muted">Weight ${o.weight}% · Due ${o.target}</small></span>
+      <span style="width:160px;flex-shrink:0">
+        ${UI.progress(o.progress, o.status)}
+        <div class="spread small muted" style="margin-top:5px"><span>${o.progress}%</span>${UI.statusBadge(o.status)}</div>
+      </span>
     </div>`).join("");
+}
 
-  const feedback = [
-    { who: "Maria S.", note: "Always quick to review my PRs — huge help." },
-    { who: "Anonymous", note: "Great collaboration during the incident last month." },
-  ].map((f) => `<div class="row-item"><span>${UI.esc(f.note)}</span><span class="tag">${UI.esc(f.who)}</span></div>`).join("");
+/* ---------- Employee — personal analytics ---------- */
+function employeeAnalytics() {
+  const mine = DB.OBJECTIVES.filter((o) => o.owner === DB.CURRENT_USER.employee.name);
+  const avg = mine.length ? Math.round(mine.reduce((a, o) => a + o.progress, 0) / mine.length) : 0;
 
   return `
-    ${UI.heroBanner(me.name, "Here's your performance snapshot for Q3 2026.")}
-
     <div class="grid grid-4" style="margin-bottom:16px">
       ${UI.statTile("Overall Score", "88", "+4 vs last Q", true)}
-      ${UI.statTile("Active Objectives", String(mine.filter(o=>o.status!=="completed").length))}
-      ${UI.statTile("Avg Progress", Math.round(mine.reduce((a,o)=>a+o.progress,0)/mine.length) + "%")}
+      ${UI.statTile("Active Objectives", String(mine.filter((o) => o.status !== "completed").length))}
+      ${UI.statTile("Avg Progress", avg + "%")}
       ${UI.statTile("Peer Rating", "4.4", "+0.3", true)}
     </div>
 
     <div class="grid grid-2">
       <div class="card">
-        <div class="card-title">My Objectives <span class="hint">${DB.EMPLOYEES[0].dept}</span></div>
-        <div class="stack">${cards}</div>
+        <div class="card-title">Performance Trend <span class="hint">Last 6 months</span></div>
+        ${UI.sparkline(DB.TREND_6M, DB.TREND_LABELS)}
       </div>
-      <div class="stack">
-        <div class="card ai-narrative">
-          <div class="ai-tag">✦ AI Summary</div>
-          <p style="margin:8px 0 0">${UI.esc(DB.AI.summary)}</p>
-        </div>
-        <div class="card">
-          <div class="card-title">Performance Trend</div>
-          ${UI.sparkline(DB.TREND_6M, DB.TREND_LABELS)}
-        </div>
+      <div class="card">
+        <div class="card-title">Objective Status Mix</div>
+        ${UI.insightBar(statusMix(mine))}
       </div>
     </div>
 
-    <div class="grid grid-2" style="margin-top:16px">
-      <div class="card">
-        <div class="card-title">Peer Feedback</div>
-        ${feedback}
-      </div>
-      <div class="card">
-        <div class="card-title">Upcoming Timeline</div>
-        <div class="row-item"><span>Q3 self-assessment</span><span class="tag">Jul 25</span></div>
-        <div class="row-item"><span>Peer review: Maria Santos</span><span class="tag">Jul 18</span></div>
-        <div class="row-item"><span>Objective check-in</span><span class="tag">Aug 01</span></div>
-      </div>
+    <div class="card" style="margin-top:16px">
+      <div class="card-title">Objective Progress <span class="hint">${mine.length} objectives · Q3 2026</span></div>
+      <div class="stack">${objectiveProgressRows(mine) || `<div class="empty">No objectives yet</div>`}</div>
     </div>`;
 }
 
-/* ---------- Leader (merged Manager + HR: team + org-wide) ---------- */
-function leaderDash() {
-  const lead = DB.CURRENT_USER.leader;
+/* ---------- Leader — team + org analytics ---------- */
+function leaderAnalytics() {
   const team = DB.EMPLOYEES.filter((e) => e.dept === "Engineering");
   const attention = team.filter((e) => e.status === "at-risk" || e.trend === "down");
 
@@ -124,25 +104,17 @@ function leaderDash() {
     .map((e) => `<div class="row-item"><span>${UI.who(e.name, e.initials, e.dept)}</span><span class="badge red">${e.score}</span></div>`).join("")
     || `<div class="empty">No low-performance alerts</div>`;
 
-  const upcoming = DB.SCHEDULED_EVALUATIONS.slice(0, 3).map((s) => `
-    <div class="row-item">
-      <span>${UI.who(s.subject, s.subjectInitials, UI.fmtDateTime(s.date, s.time))}</span>
-      <a class="btn sm" href="${UI.googleCalUrl("Performance Evaluation · " + s.subject, s.date, s.time, s.durationMin, s.notes, DB.GOOGLE_CAL.account)}" target="_blank" rel="noopener">📅 Add to Google Calendar</a>
-    </div>`).join("") || `<div class="empty">No evaluations scheduled.</div>`;
-
   return `
-    ${UI.heroBanner(lead.name, "Your team and organization performance at a glance.")}
-
     <div class="grid grid-4" style="margin-bottom:16px">
       ${UI.statTile("Team Avg Score", "80", "+2", true)}
       ${UI.statTile("Objective Completion", "78%", "+6%", true)}
-      ${UI.statTile("Pending Reviews", String(DB.PEER_REVIEWS.filter(r=>r.status==="pending").length))}
+      ${UI.statTile("Pending Feedback", String(DB.PEER_REVIEWS.filter((r) => r.status === "pending").length))}
       ${UI.statTile("Need Attention", String(attention.length), "-1", true)}
     </div>
 
     <div class="card" style="margin-bottom:16px">
       <div class="card-title">Objective Status Mix <span class="hint">All objectives</span></div>
-      ${UI.insightBar(objectiveStatusMix())}
+      ${UI.insightBar(statusMix(DB.OBJECTIVES))}
     </div>
 
     <div class="grid grid-2">
@@ -179,22 +151,7 @@ function leaderDash() {
     </div>
 
     <div class="card" style="margin-top:16px">
-      <div class="card-title">Upcoming Evaluations <span class="hint">Schedule in Reviews → Team Evaluations</span></div>
-      ${upcoming}
-    </div>
-
-    <div class="card" style="margin-top:16px">
       <div class="card-title">Employees Needing Attention</div>
       ${att}
     </div>`;
 }
-
-/* ---------- Wiring ---------- */
-window.ViewsWire.dashboard = function () {
-  // Hero CTA: reuse the nav to navigate + re-render.
-  document.querySelectorAll(".hero [data-view]").forEach((b) =>
-    b.addEventListener("click", () => {
-      const nav = document.querySelector(`.nav-item[data-view="${b.dataset.view}"]`);
-      if (nav) nav.click();
-    }));
-};
