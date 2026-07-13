@@ -30,6 +30,41 @@ const UI = {
     return `<span class="who">${UI.avatar(initials)}<span>${UI.esc(name)}${sub ? `<br><small>${UI.esc(sub)}</small>` : ""}</span></span>`;
   },
 
+  // Objective achievement % = manager's evaluation once given, else the self-assessment.
+  objAchieved(o) {
+    return o.managerPercent != null ? o.managerPercent : (o.selfPercent != null ? o.selfPercent : 0);
+  },
+  // Derive a status band from a percentage (for progress-bar color + badges).
+  pctStatus(pct) {
+    return pct >= 100 ? "completed" : pct >= 70 ? "on-track" : pct > 0 ? "at-risk" : "draft";
+  },
+
+  // Scalable half-year selector: prev/next stepper + dropdown (+ optional "New half-year").
+  // `sel` = currently selected period; opts.id = element id prefix; opts.showNew/newDisabled
+  // control the New half-year button. Periods come from DB.PERIODS (newest-first).
+  periodSelect(sel, opts) {
+    opts = opts || {};
+    const id = opts.id || "period";
+    const periods = DB.PERIODS;
+    const idx = periods.indexOf(sel);
+    const options = periods.map((p) =>
+      `<option value="${UI.esc(p)}" ${p === sel ? "selected" : ""}>${UI.esc(p)}${p === DB.PERIOD ? " · current" : ""}</option>`).join("");
+    const olderDisabled = idx >= periods.length - 1 ? "disabled" : ""; // older = higher index
+    const newerDisabled = idx <= 0 ? "disabled" : "";                  // newer = lower index
+    const newBtn = opts.showNew
+      ? `<button class="btn sm ghost" id="${id}-new-half" ${opts.newDisabled ? `disabled title="Add an objective before starting a new half-year"` : ""}>＋ New half-year</button>`
+      : "";
+    return `<div class="spread" style="margin-bottom:16px">
+      <div class="row" style="gap:8px;align-items:center">
+        <span class="small muted">Viewing</span>
+        <button class="btn sm" id="${id}-prev" ${olderDisabled} title="Older half-year">‹</button>
+        <select id="${id}-select" style="width:auto;min-width:170px">${options}</select>
+        <button class="btn sm" id="${id}-next" ${newerDisabled} title="Newer half-year">›</button>
+      </div>
+      ${newBtn}
+    </div>`;
+  },
+
   // Map objective/employee status -> badge markup.
   statusBadge(status) {
     const map = {

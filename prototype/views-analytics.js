@@ -15,9 +15,9 @@ const BAND_COLORS = {
   "At Risk": "var(--red)",
 };
 
-// Objective status mix -> insight-bar segments (over a given objective list).
+// Objective status mix -> insight-bar segments (band derived from achievement %).
 function statusMix(objectives) {
-  const by = (s) => objectives.filter((o) => o.status === s).length;
+  const by = (s) => objectives.filter((o) => UI.pctStatus(UI.objAchieved(o)) === s).length;
   return [
     { label: "On track",  value: by("on-track"),  color: "var(--green-deep)" },
     { label: "At risk",   value: by("at-risk"),   color: "var(--donut-amber)" },
@@ -26,28 +26,32 @@ function statusMix(objectives) {
   ];
 }
 
-// Compact objective progress rows (title + weight/due + progress bar + status).
+// Compact objective progress rows (title + category/period + achievement bar + status).
 function objectiveProgressRows(objectives) {
-  return objectives.map((o) => `
+  return objectives.map((o) => {
+    const pct = UI.objAchieved(o);
+    const cat = o.category === "organization" ? "Organization" : "Personal";
+    return `
     <div class="row-item">
-      <span style="flex:1"><strong>${UI.esc(o.title)}</strong><br><small class="muted">Weight ${o.weight}% · Due ${o.target}</small></span>
+      <span style="flex:1"><strong>${UI.esc(o.title)}</strong><br><small class="muted">${cat} · ${UI.esc(o.period)}</small></span>
       <span style="width:160px;flex-shrink:0">
-        ${UI.progress(o.progress, o.status)}
-        <div class="spread small muted" style="margin-top:5px"><span>${o.progress}%</span>${UI.statusBadge(o.status)}</div>
+        ${UI.progress(pct, UI.pctStatus(pct))}
+        <div class="spread small muted" style="margin-top:5px"><span>${pct}%</span>${UI.statusBadge(UI.pctStatus(pct))}</div>
       </span>
-    </div>`).join("");
+    </div>`;
+  }).join("");
 }
 
 /* ---------- Employee — personal analytics ---------- */
 function employeeAnalytics() {
-  const mine = DB.OBJECTIVES.filter((o) => o.owner === DB.CURRENT_USER.employee.name);
-  const avg = mine.length ? Math.round(mine.reduce((a, o) => a + o.progress, 0) / mine.length) : 0;
+  const mine = DB.OBJECTIVES.filter((o) => o.owner === DB.CURRENT_USER.employee.name && o.period === DB.PERIOD);
+  const avg = mine.length ? Math.round(mine.reduce((a, o) => a + UI.objAchieved(o), 0) / mine.length) : 0;
 
   return `
     <div class="grid grid-4" style="margin-bottom:16px">
-      ${UI.statTile("Overall Score", "88", "+4 vs last Q", true)}
-      ${UI.statTile("Active Objectives", String(mine.filter((o) => o.status !== "completed").length))}
-      ${UI.statTile("Avg Progress", avg + "%")}
+      ${UI.statTile("Overall Score", "88", "+4 vs last H", true)}
+      ${UI.statTile("Active Objectives", String(mine.filter((o) => UI.objAchieved(o) < 100).length))}
+      ${UI.statTile("Avg Achievement", avg + "%")}
       ${UI.statTile("Peer Rating", "4.4", "+0.3", true)}
     </div>
 
@@ -63,7 +67,7 @@ function employeeAnalytics() {
     </div>
 
     <div class="card" style="margin-top:16px">
-      <div class="card-title">Objective Progress <span class="hint">${mine.length} objectives · Q3 2026</span></div>
+      <div class="card-title">Objective Progress <span class="hint">${mine.length} objectives · ${UI.esc(DB.PERIOD)}</span></div>
       <div class="stack">${objectiveProgressRows(mine) || `<div class="empty">No objectives yet</div>`}</div>
     </div>`;
 }
@@ -114,7 +118,7 @@ function leaderAnalytics() {
 
     <div class="card" style="margin-bottom:16px">
       <div class="card-title">Objective Status Mix <span class="hint">All objectives</span></div>
-      ${UI.insightBar(statusMix(DB.OBJECTIVES))}
+      ${UI.insightBar(statusMix(DB.OBJECTIVES.filter((o) => o.period === DB.PERIOD)))}
     </div>
 
     <div class="grid grid-2">

@@ -21,130 +21,184 @@ const EMPLOYEES = [
   { id: 8, name: "Andre Uy",      initials: "AU", role: "Eng. Manager",      dept: "Engineering", score: 87, trend: "up",   status: "on-track" },
 ];
 
-// Objectives (the heart of the app). status: on-track | at-risk | completed | draft
+// Review cycle is a half-year. PERIODS newest-first; index 0 is the current (open) one.
+const PERIOD = "2026-2nd";
+const PERIODS = ["2026-2nd", "2026-1st", "2025-2nd"];
+const LIMITS = { organization: 3, personal: 5 };
+
+// Mission statement per half-year, keyed "<period>|<name>" (editable for the current period).
+const MISSION_STATEMENTS = {
+  "2026-2nd|Abdul Palala": "Ship reliable, well-tested features while growing into a mentor for the team.",
+  "2026-2nd|Andre Uy": "Build a predictable, healthy engineering team that ships quality work on time.",
+  "2026-1st|Abdul Palala": "Stabilize core services and strengthen my infrastructure skills.",
+  "2026-1st|Andre Uy": "Cut attrition and raise delivery predictability across the team.",
+  "2025-2nd|Abdul Palala": "Deliver billing v1 and improve release confidence.",
+};
+
+// Objectives. Two categories per the OBS template:
+//   organization = requested by the manager/company (max 3)
+//   personal     = set by the member themselves (max 5)
+// Dual assessment: self (percent + report) and manager (percent + comment).
+// Self side is editable until the manager evaluates (managerPercent !== null).
 const OBJECTIVES = [
+  // ---- Abdul Palala (employee) ----
   {
     id: 101, title: "Improve Code Quality", owner: "Abdul Palala", ownerInitials: "AP",
-    weight: 30, progress: 74, status: "on-track", target: "2026-09-30", period: "Q3 2026",
-    description: "Raise overall code quality across the platform team through reviews, tests and reduced defects.",
-    criteria: [
-      { text: "Less than 3 production bugs", done: true },
-      { text: "PR approval rate > 95%", done: true },
-      { text: "Unit test coverage > 80%", done: false },
-    ],
+    category: "organization", period: PERIOD,
+    description: "Raise code quality across the platform team through reviews, tests, and fewer defects.",
+    selfPercent: 80, selfReport: "Cut production bugs to 2 and held PR approval at 96%; unit coverage still climbing.",
+    managerPercent: 78, managerComment: "Strong quarter. Keep pushing unit test coverage toward the 80% target.",
     evidence: [
-      { src: "GitHub",  text: "Reviewed 43 pull requests this quarter" },
-      { src: "GitHub",  text: "PR approval rate at 96%" },
+      { src: "GitHub",  text: "Reviewed 43 pull requests; approval rate 96%" },
       { src: "Backlog", text: "Closed 12 bug tickets, 0 reopened" },
     ],
   },
   {
     id: 102, title: "Improve Delivery Reliability", owner: "Abdul Palala", ownerInitials: "AP",
-    weight: 25, progress: 87, status: "on-track", target: "2026-09-30", period: "Q3 2026",
+    category: "organization", period: PERIOD,
     description: "Deliver committed work on schedule with fewer overdue items.",
-    criteria: [
-      { text: "Complete 20+ assigned tasks", done: true },
-      { text: "Zero overdue work items", done: true },
-      { text: "Avg completion time improved 10%", done: false },
-    ],
+    selfPercent: 90, selfReport: "Completed 19 of 22 assigned tasks with no overdue work; average cycle time down 15%.",
+    managerPercent: null, managerComment: "",
     evidence: [
       { src: "Backlog", text: "Completed 19 of 22 assigned tasks" },
       { src: "Backlog", text: "Average completion time improved by 15%" },
-      { src: "Backlog", text: "No overdue work this quarter" },
     ],
   },
   {
-    id: 103, title: "Strengthen Team Collaboration", owner: "Abdul Palala", ownerInitials: "AP",
-    weight: 20, progress: 68, status: "at-risk", target: "2026-09-15", period: "Q3 2026",
-    description: "Actively support the team through reviews, planning and mentoring.",
-    criteria: [
-      { text: "Participate in all sprint plannings", done: true },
-      { text: "Mentor 1 junior engineer", done: false },
-      { text: "5+ peer recognitions", done: true },
-    ],
-    evidence: [
-      { src: "Slack",   text: "Received 5 peer recognitions" },
-      { src: "Backlog", text: "Participated in 17 planning meetings" },
-      { src: "GitHub",  text: "Left 61 review comments across the team" },
-    ],
-  },
-  {
-    id: 104, title: "Ship Mobile Redesign", owner: "Grace Lim", ownerInitials: "GL",
-    weight: 40, progress: 100, status: "completed", target: "2026-06-30", period: "Q2 2026",
-    description: "Complete and hand off the mobile app visual redesign.",
-    criteria: [
-      { text: "Finalize design system", done: true },
-      { text: "Deliver all 24 screens", done: true },
-    ],
-    evidence: [
-      { src: "Slack",  text: "Design system approved by stakeholders" },
-      { src: "GitHub", text: "24/24 screens handed to engineering" },
-    ],
-  },
-  {
-    id: 105, title: "Reduce Regression Escapes", owner: "John Cruz", ownerInitials: "JC",
-    weight: 35, progress: 41, status: "at-risk", target: "2026-09-30", period: "Q3 2026",
-    description: "Cut the number of regressions escaping to production.",
-    criteria: [
-      { text: "Add regression suite", done: false },
-      { text: "< 2 escaped regressions / month", done: false },
-    ],
-    evidence: [
-      { src: "Backlog", text: "5 regressions escaped last month" },
-    ],
-  },
-  {
-    id: 106, title: "Adopt New Release Process", owner: "Maria Santos", ownerInitials: "MS",
-    weight: 15, progress: 0, status: "draft", target: "2026-12-31", period: "Q4 2026",
-    description: "Roll out the new automated release pipeline across squads.",
-    criteria: [
-      { text: "Document release runbook", done: false },
-      { text: "Train all squad leads", done: false },
-    ],
+    id: 103, title: "Mentor a Junior Engineer", owner: "Abdul Palala", ownerInitials: "AP",
+    category: "personal", period: PERIOD,
+    description: "Support a new team member's ramp-up through regular pairing and reviews.",
+    selfPercent: 60, selfReport: "Weekly pairing sessions running; onboarding doc drafted, ramp still in progress.",
+    managerPercent: null, managerComment: "",
     evidence: [],
   },
-  // --- Leader's own (personal) objectives — owner: Andre Uy ---
+  {
+    id: 110, title: "Raise Unit Test Coverage to 80%", owner: "Abdul Palala", ownerInitials: "AP",
+    category: "personal", period: PERIOD,
+    description: "Close the gap to the 80% unit test coverage objective.",
+    selfPercent: 55, selfReport: "Currently at 74%; adding suites for the auth and platform modules.",
+    managerPercent: null, managerComment: "",
+    evidence: [{ src: "Backlog", text: "Coverage measured at 74%" }],
+  },
+  // ---- Andre Uy (leader — his own objectives) ----
   {
     id: 107, title: "Grow Delivery Predictability", owner: "Andre Uy", ownerInitials: "AU",
-    weight: 30, progress: 72, status: "on-track", target: "2026-09-30", period: "Q3 2026",
+    category: "organization", period: PERIOD,
     description: "Improve the team's on-time delivery and cut milestone slippage.",
-    criteria: [
-      { text: "Team on-time delivery ≥ 90%", done: true },
-      { text: "Sprint carryover < 10%", done: false },
-      { text: "No critical milestone missed", done: true },
-    ],
-    evidence: [
-      { src: "Backlog", text: "Team on-time delivery at 88% this quarter" },
-      { src: "Backlog", text: "Sprint carryover trending down: 18% → 12%" },
-    ],
-  },
-  {
-    id: 108, title: "Strengthen Team Health", owner: "Andre Uy", ownerInitials: "AU",
-    weight: 35, progress: 58, status: "at-risk", target: "2026-09-30", period: "Q3 2026",
-    description: "Support engagement, growth, and retention across the team.",
-    criteria: [
-      { text: "Biweekly 1:1s with every report", done: true },
-      { text: "Team eNPS ≥ 40", done: false },
-      { text: "Zero regretted attrition", done: true },
-    ],
-    evidence: [
-      { src: "Slack",   text: "1:1 cadence held with all 6 reports" },
-      { src: "Backlog", text: "Latest team eNPS measured at 34" },
-    ],
+    selfPercent: 75, selfReport: "Team on-time delivery at 88%; sprint carryover down to 12%.",
+    managerPercent: null, managerComment: "",
+    evidence: [{ src: "Backlog", text: "Team on-time delivery at 88%" }],
   },
   {
     id: 109, title: "Raise Engineering Quality Bar", owner: "Andre Uy", ownerInitials: "AU",
-    weight: 35, progress: 80, status: "on-track", target: "2026-09-30", period: "Q3 2026",
-    description: "Drive quality practices across the team through faster reviews and fewer incidents.",
-    criteria: [
-      { text: "PR review turnaround < 1 day", done: true },
-      { text: "Production incidents down 20%", done: true },
-      { text: "Test coverage ≥ 80%", done: false },
-    ],
-    evidence: [
-      { src: "GitHub",  text: "Median PR review turnaround at 14 hours" },
-      { src: "Backlog", text: "Production incidents down 23% quarter-over-quarter" },
-    ],
+    category: "personal", period: PERIOD,
+    description: "Drive quality practices across the team via faster reviews and fewer incidents.",
+    selfPercent: 80, selfReport: "Median PR review turnaround under 1 day; production incidents down 23%.",
+    managerPercent: null, managerComment: "",
+    evidence: [],
+  },
+  // ---- Grace Lim ----
+  {
+    id: 104, title: "Ship Mobile Redesign", owner: "Grace Lim", ownerInitials: "GL",
+    category: "organization", period: PERIOD,
+    description: "Complete and hand off the mobile app visual redesign.",
+    selfPercent: 100, selfReport: "Delivered all 24 screens; design system approved by stakeholders.",
+    managerPercent: 95, managerComment: "Outstanding delivery and design leadership this half.",
+    evidence: [{ src: "GitHub", text: "24/24 screens handed to engineering" }],
+  },
+  {
+    id: 111, title: "Improve Design Handoff Docs", owner: "Grace Lim", ownerInitials: "GL",
+    category: "personal", period: PERIOD,
+    description: "Make engineering handoff smoother with reusable documentation templates.",
+    selfPercent: 70, selfReport: "Templates drafted; team adoption underway.",
+    managerPercent: null, managerComment: "",
+    evidence: [],
+  },
+  // ---- John Cruz ----
+  {
+    id: 105, title: "Reduce Regression Escapes", owner: "John Cruz", ownerInitials: "JC",
+    category: "organization", period: PERIOD,
+    description: "Cut the number of regressions escaping to production.",
+    selfPercent: 45, selfReport: "Still around 5 escapes per month; regression suite is a work in progress.",
+    managerPercent: null, managerComment: "",
+    evidence: [{ src: "Backlog", text: "5 regressions escaped last month" }],
+  },
+  {
+    id: 112, title: "Adopt TDD on New Modules", owner: "John Cruz", ownerInitials: "JC",
+    category: "personal", period: PERIOD,
+    description: "Practice test-driven development on newly built modules.",
+    selfPercent: 50, selfReport: "Applied TDD on 2 of 4 new modules so far.",
+    managerPercent: null, managerComment: "",
+    evidence: [],
+  },
+  // ---- Maria Santos ----
+  {
+    id: 106, title: "Adopt New Release Process", owner: "Maria Santos", ownerInitials: "MS",
+    category: "organization", period: PERIOD,
+    description: "Roll out the new automated release pipeline across squads.",
+    selfPercent: 20, selfReport: "Runbook drafting started; pipeline setup pending.",
+    managerPercent: null, managerComment: "",
+    evidence: [],
+  },
+  {
+    id: 113, title: "Cross-train on CI Pipeline", owner: "Maria Santos", ownerInitials: "MS",
+    category: "personal", period: PERIOD,
+    description: "Build working knowledge of the CI/CD pipeline and release tooling.",
+    selfPercent: 40, selfReport: "Shadowing recent releases and learning the tooling.",
+    managerPercent: null, managerComment: "",
+    evidence: [],
+  },
+  // ---- Nadia Rahman ----
+  {
+    id: 114, title: "Own Incident Response Rotation", owner: "Nadia Rahman", ownerInitials: "NR",
+    category: "organization", period: PERIOD,
+    description: "Take ownership of the on-call incident response rotation.",
+    selfPercent: 30, selfReport: "Shadowing the current on-call engineer this cycle.",
+    managerPercent: null, managerComment: "",
+    evidence: [],
+  },
+  {
+    id: 115, title: "Improve On-call Runbooks", owner: "Nadia Rahman", ownerInitials: "NR",
+    category: "personal", period: PERIOD,
+    description: "Document response steps for the most common production alerts.",
+    selfPercent: 25, selfReport: "Started documenting the top alerts and escalation paths.",
+    managerPercent: null, managerComment: "",
+    evidence: [],
+  },
+  // ===== Closed past half-years (read-only history) =====
+  // ---- 2026 1st half ----
+  {
+    id: 201, title: "Stabilize Auth Service", owner: "Abdul Palala", ownerInitials: "AP",
+    category: "organization", period: "2026-1st",
+    description: "Reduce auth-service incidents and improve reliability.",
+    selfPercent: 85, selfReport: "Cut auth incidents from 6 to 1; added health checks.",
+    managerPercent: 82, managerComment: "Big reliability win. Document the runbook next cycle.",
+    evidence: [],
+  },
+  {
+    id: 202, title: "Learn Kubernetes Basics", owner: "Abdul Palala", ownerInitials: "AP",
+    category: "personal", period: "2026-1st",
+    description: "Build working knowledge of the container platform.",
+    selfPercent: 70, selfReport: "Completed the internal K8s course; deployed a test service.",
+    managerPercent: 72, managerComment: "Good foundation — apply it to a real service next.",
+    evidence: [],
+  },
+  {
+    id: 203, title: "Reduce Team Attrition", owner: "Andre Uy", ownerInitials: "AU",
+    category: "organization", period: "2026-1st",
+    description: "Improve retention across the engineering team.",
+    selfPercent: 80, selfReport: "Zero regretted attrition; ran stay-interviews with all reports.",
+    managerPercent: 85, managerComment: "Strong people leadership this half.",
+    evidence: [],
+  },
+  // ---- 2025 2nd half ----
+  {
+    id: 204, title: "Ship Billing v1", owner: "Abdul Palala", ownerInitials: "AP",
+    category: "organization", period: "2025-2nd",
+    description: "Deliver the first version of the billing module.",
+    selfPercent: 90, selfReport: "Shipped billing v1 on schedule; 2 minor post-launch fixes.",
+    managerPercent: 88, managerComment: "Solid delivery under a tight deadline.",
+    evidence: [],
   },
 ];
 
@@ -297,4 +351,5 @@ window.DB = {
   AVATAR_COLORS, CURRENT_USER, EMPLOYEES, OBJECTIVES, PEER_REVIEWS, MANAGER_REVIEW,
   AI, DEPARTMENTS, TREND_6M, TREND_LABELS, DISTRIBUTION, KPI_TRENDS,
   RECEIVED_EVALUATIONS, TEAM_EVALUATIONS, SCHEDULED_EVALUATIONS, GOOGLE_CAL,
+  PERIOD, PERIODS, LIMITS, MISSION_STATEMENTS,
 };

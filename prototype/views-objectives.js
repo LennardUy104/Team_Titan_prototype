@@ -1,102 +1,233 @@
-/* Titan prototype — Objectives + Progress view. List, create modal, detail modal with evidence. */
+/* Titan prototype — My Objectives view (OBS template model, half-year cycle).
+   Visible period tabs (like the spreadsheet): current half is editable, past
+   halves are read-only history. Mission Statement + Organization (max 3) +
+   Personal (max 5) objectives, each with self + manager assessment. */
 window.Views = window.Views || {};
 window.ViewsWire = window.ViewsWire || {};
 
-// "My Objectives" is personal for BOTH roles — each user sees only their own objectives.
-// (A leader's view of team objectives now lives in the Feedback tab's workflow.)
-window.Views.objectives = function (role) {
-  const me = DB.CURRENT_USER[role].name;
-  const list = DB.OBJECTIVES.filter((o) => o.owner === me);
+// Which half-year is being viewed (persists across nav within the session).
+const ObjState = { period: DB.PERIOD };
 
-  const rows = list.map((o) => `
-    <tr class="clickable" data-obj="${o.id}">
-      <td><strong>${UI.esc(o.title)}</strong><br><small class="muted">${UI.esc(o.period)}</small></td>
-      <td>${o.weight}%</td>
-      <td>${o.target}</td>
-      <td style="min-width:150px">${UI.progress(o.progress, o.status)}<div class="right small muted" style="margin-top:4px">${o.progress}%</div></td>
-      <td>${UI.statusBadge(o.status)}</td>
-    </tr>`).join("") || `<tr><td colspan="5"><div class="empty">No objectives yet</div></td></tr>`;
+function objField(o, key, value) { o[key] = value; } // mutate in-memory mock record
 
+// Next half-year label: "2026-1st" -> "2026-2nd" -> "2027-1st" ...
+function nextPeriodLabel(p) {
+  const [y, half] = p.split("-");
+  return half === "1st" ? `${y}-2nd` : `${Number(y) + 1}-1st`;
+}
+
+// One objective card. Self side is editable only in the current period and until
+// the manager has evaluated it; otherwise it renders read-only.
+function objectiveCard(o, isCurrent) {
+  const canEdit = isCurrent && o.managerPercent == null;
+  const achieved = UI.objAchieved(o);
+  const evaluated = o.managerPercent != null;
+
+  const selfBlock = canEdit
+    ? `<label class="small muted">Achieved %</label>
+       <input type="number" min="0" max="100" value="${o.selfPercent != null ? o.selfPercent : ""}" data-self-pct="${o.id}" placeholder="0–100" style="max-width:120px" />
+       <label class="small muted" style="margin-top:8px;display:block">Achievement report <span class="muted">· why this %</span></label>
+       <textarea data-self-report="${o.id}" placeholder="Explain your progress and the reason for this percentage…">${UI.esc(o.selfReport)}</textarea>`
+    : `<div class="small"><strong>${o.selfPercent != null ? o.selfPercent + "%" : "—"}</strong><span class="muted"> · self-assessed</span></div>
+       <p class="small muted" style="margin:6px 0 0">${UI.esc(o.selfReport) || "No report provided."}</p>
+       ${(isCurrent && evaluated) ? `<div class="small muted" style="margin-top:6px">🔒 Locked after manager evaluation</div>` : ""}`;
+
+  const managerBlock = evaluated
+    ? `<div class="small"><strong>${o.managerPercent}%</strong><span class="muted"> · manager</span></div>
+       <p class="small muted" style="margin:6px 0 0">${UI.esc(o.managerComment) || "No comment."}</p>`
+    : `<div class="empty" style="padding:14px">Awaiting manager evaluation</div>`;
+
+  return `<div class="card" style="margin-bottom:12px">
+    <div class="spread" style="align-items:flex-start">
+      <div><strong>${UI.esc(o.title)}</strong><div class="small muted" style="margin-top:2px">${UI.esc(o.period)}</div></div>
+      <span class="badge ${evaluated ? "green" : "gray"}">${evaluated ? "Evaluated" : "In progress"} · ${achieved}%</span>
+    </div>
+    <p class="small muted" style="margin:8px 0 12px">${UI.esc(o.description)}</p>
+    <div class="fb-cols">
+      <div><h4>Self evaluation</h4>${selfBlock}</div>
+      <div><h4>Manager evaluation</h4>${managerBlock}</div>
+    </div>
+  </div>`;
+}
+
+function objectiveSection(title, sub, objs, isCurrent, addBtn) {
+  const body = objs.length ? objs.map((o) => objectiveCard(o, isCurrent)).join("") : `<div class="empty">No objectives yet.</div>`;
   return `
     <div class="section-head">
-      <div><h2 class="mb-0">My Objectives</h2><div class="small muted">${list.length} objective${list.length === 1 ? "" : "s"} · Q3 2026</div></div>
-      <div class="row" style="gap:10px"><button class="btn primary" id="btn-create-obj">+ Create Objective</button></div>
+      <div><h2 class="mb-0">${title}</h2><div class="small muted">${sub}</div></div>
+      ${addBtn || ""}
     </div>
-    <div class="card" style="padding:6px 6px">
-      <table class="table">
-        <thead><tr><th>Objective</th><th>Weight</th><th>Target</th><th>Progress</th><th>Status</th></tr></thead>
-        <tbody>${rows}</tbody>
-      </table>
+    ${body}`;
+}
+
+window.Views.objectives = function (role) {
+  const me = DB.CURRENT_USER[role].name;
+  const period = ObjState.period;
+  const isCurrent = period === DB.PERIOD;
+  const mine = DB.OBJECTIVES.filter((o) => o.owner === me && o.period === period);
+  const org = mine.filter((o) => o.category === "organization");
+  const personal = mine.filter((o) => o.category === "personal");
+  const mission = DB.MISSION_STATEMENTS[`${period}|${me}`] || "";
+
+  const personalFull = personal.length >= DB.LIMITS.personal;
+  const addPersonal = isCurrent
+    ? `<button class="btn primary" id="add-personal" ${personalFull ? "disabled title='Maximum reached'" : ""}>+ Add Personal Objective</button>`
+    : "";
+
+  const banner = isCurrent ? "" : `<div class="small muted" style="margin-bottom:12px">🔒 ${UI.esc(period)} is a closed half-year — read-only history.</div>`;
+
+  const missionCard = `<div class="card" style="margin-bottom:20px">
+    <div class="card-title">Mission Statement <span class="hint">${UI.esc(period)} · one sentence</span></div>
+    ${isCurrent
+      ? `<textarea id="mission" placeholder="Describe your focus for the coming half year…">${UI.esc(mission)}</textarea>`
+      : `<p class="muted" style="margin:0">${UI.esc(mission) || "—"}</p>`}
+  </div>`;
+
+  return `
+    ${UI.periodSelect(period, { id: "period", showNew: isCurrent, newDisabled: mine.length === 0 })}
+    ${banner}
+    ${missionCard}
+    ${objectiveSection("Organization Objectives", `${org.length} of ${DB.LIMITS.organization} · assigned by your leader`, org, isCurrent, "")}
+    <div style="margin-top:24px">
+      ${objectiveSection("Personal Objectives", `${personal.length} of ${DB.LIMITS.personal} · set by you`, personal, isCurrent, addPersonal)}
     </div>`;
 };
 
-window.ViewsWire.objectives = function () {
-  document.getElementById("btn-create-obj").addEventListener("click", openCreateModal);
-  document.querySelectorAll("tr[data-obj]").forEach((tr) =>
-    tr.addEventListener("click", () => openDetailModal(Number(tr.dataset.obj))));
+window.ViewsWire.objectives = function (role) {
+  // Half-year selector: dropdown + prev/next stepper.
+  const sel = document.getElementById("period-select");
+  if (sel) sel.addEventListener("change", () => { ObjState.period = sel.value; rerenderObjectives(role); });
+  const stepTo = (delta) => {
+    const i = DB.PERIODS.indexOf(ObjState.period) + delta;
+    if (i >= 0 && i < DB.PERIODS.length) { ObjState.period = DB.PERIODS[i]; rerenderObjectives(role); }
+  };
+  const prev = document.getElementById("period-prev");   // older
+  if (prev) prev.addEventListener("click", () => stepTo(1));
+  const next = document.getElementById("period-next");   // newer
+  if (next) next.addEventListener("click", () => stepTo(-1));
+
+  // Start the next half-year (blank template) — guarded + confirmed to avoid empty spam.
+  const newHalf = document.getElementById("period-new-half");
+  if (newHalf) newHalf.addEventListener("click", () => confirmNewHalfYear(role));
+
+  // Mission statement — persist to the in-memory record (current period only).
+  const mission = document.getElementById("mission");
+  if (mission) mission.addEventListener("input", () => { DB.MISSION_STATEMENTS[`${ObjState.period}|${DB.CURRENT_USER[role].name}`] = mission.value; });
+
+  // Self-assessment edits — write straight to the objective record (keeps focus).
+  document.querySelectorAll("[data-self-pct]").forEach((el) =>
+    el.addEventListener("input", () => {
+      const o = DB.OBJECTIVES.find((x) => x.id === Number(el.dataset.selfPct));
+      if (o) objField(o, "selfPercent", el.value === "" ? null : Math.max(0, Math.min(100, Number(el.value))));
+    }));
+  document.querySelectorAll("[data-self-report]").forEach((el) =>
+    el.addEventListener("input", () => {
+      const o = DB.OBJECTIVES.find((x) => x.id === Number(el.dataset.selfReport));
+      if (o) objField(o, "selfReport", el.value);
+    }));
+
+  const add = document.getElementById("add-personal");
+  if (add) add.addEventListener("click", () => openCreatePersonal(role));
 };
 
+// Start the next half-year — only from the current period, only once it has objectives, with confirm.
+function confirmNewHalfYear(role) {
+  const me = DB.CURRENT_USER[role].name;
+  const hasObjective = DB.OBJECTIVES.some((o) => o.owner === me && o.period === DB.PERIOD);
+  if (!hasObjective) { toastObj("Add at least one objective to the current half-year before starting a new one."); return; }
+  const next = nextPeriodLabel(DB.PERIOD);
+  Modal.open(`
+    <div class="modal-head"><h3>Start ${next}?</h3><button class="close" data-close>×</button></div>
+    <p class="muted" style="margin-top:0">This opens a blank objective template for <strong>${next}</strong> and closes <strong>${DB.PERIOD}</strong> (it becomes read-only history).</p>
+    <div class="modal-foot"><button class="btn" data-close>Cancel</button><button class="btn primary" id="confirm-new-half">Start ${next}</button></div>`);
+  document.getElementById("confirm-new-half").addEventListener("click", () => {
+    if (!DB.PERIODS.includes(next)) DB.PERIODS.unshift(next);
+    DB.PERIOD = next;
+    ObjState.period = next;
+    Modal.close();
+    rerenderObjectives(role);
+  });
+}
+
+function openCreatePersonal(role) {
+  const me = DB.CURRENT_USER[role];
+  const count = DB.OBJECTIVES.filter((o) => o.owner === me.name && o.category === "personal" && o.period === DB.PERIOD).length;
+  if (count >= DB.LIMITS.personal) { toastObj(`You can set at most ${DB.LIMITS.personal} personal objectives per half-year.`); return; }
+
+  Modal.open(`
+    <div class="modal-head"><h3>New Personal Objective</h3><button class="close" data-close>×</button></div>
+    <div class="field"><label>Title</label><input type="text" id="new-obj-title" placeholder="e.g. Improve Test Coverage" /></div>
+    <div class="field"><label>Description</label><textarea id="new-obj-desc" placeholder="What do you want to achieve this half-year?"></textarea></div>
+    <div class="small muted">${count} of ${DB.LIMITS.personal} personal objectives used for ${UI.esc(DB.PERIOD)}.</div>
+    <div class="modal-foot">
+      <button class="btn" data-close>Cancel</button>
+      <button class="btn primary" id="create-personal-confirm">Create</button>
+    </div>`);
+
+  document.getElementById("create-personal-confirm").addEventListener("click", () => {
+    const title = document.getElementById("new-obj-title").value.trim();
+    const desc = document.getElementById("new-obj-desc").value.trim();
+    if (!title) { toastObj("Give your objective a title."); return; }
+    DB.OBJECTIVES.push({
+      id: nextObjectiveId(), title, owner: me.name, ownerInitials: me.initials,
+      category: "personal", period: DB.PERIOD, description: desc,
+      selfPercent: 0, selfReport: "", managerPercent: null, managerComment: "", evidence: [],
+    });
+    Modal.close();
+    rerenderObjectives(role);
+  });
+}
+
+function nextObjectiveId() {
+  return DB.OBJECTIVES.reduce((max, o) => Math.max(max, o.id), 100) + 1;
+}
+
+// Read-only objective detail (also opened from the Feedback tab).
 function openDetailModal(id) {
   const o = DB.OBJECTIVES.find((x) => x.id === id);
   if (!o) return;
-
-  const criteria = o.criteria.map((c) =>
-    `<li><span class="ck ${c.done ? "" : "off"}">${c.done ? "✓" : "○"}</span> ${UI.esc(c.text)}</li>`).join("");
-
-  const evidence = o.evidence.length
+  const catLabel = o.category === "organization" ? "Organization" : "Personal";
+  const evidence = (o.evidence || []).length
     ? o.evidence.map((e) => `<li><span class="ck">✓</span> ${UI.esc(e.text)} <span class="tag">${UI.esc(e.src)}</span></li>`).join("")
-    : `<li class="muted">No evidence collected yet.</li>`;
+    : "";
+  const managerBlock = o.managerPercent != null
+    ? `<div class="spread"><strong>Manager evaluation</strong><span>${o.managerPercent}%</span></div>
+       <p class="muted small" style="margin-top:6px">${UI.esc(o.managerComment) || "No comment."}</p>`
+    : `<div class="spread"><strong>Manager evaluation</strong><span class="muted">Pending</span></div>`;
 
   Modal.open(`
     <div class="modal-head">
       <div>
         <h3>${UI.esc(o.title)}</h3>
-        <div class="row small muted" style="margin-top:6px;gap:14px">
-          ${UI.statusBadge(o.status)} <span>Weight ${o.weight}%</span> <span>Due ${o.target}</span>
-        </div>
+        <div class="row small muted" style="margin-top:6px;gap:10px"><span class="tag">${catLabel}</span> <span>${UI.esc(o.period)}</span></div>
       </div>
       <button class="close" data-close>×</button>
     </div>
     <p class="muted" style="margin-top:0">${UI.esc(o.description)}</p>
 
     <div class="divider"></div>
-    <div class="spread"><strong>Progress</strong><span class="muted">${o.progress}%</span></div>
-    <div style="margin-top:8px">${UI.progress(o.progress, o.status)}</div>
+    <div class="spread"><strong>Self evaluation</strong><span>${o.selfPercent != null ? o.selfPercent + "%" : "—"}</span></div>
+    <p class="muted small" style="margin-top:6px">${UI.esc(o.selfReport) || "No report provided."}</p>
 
     <div class="divider"></div>
-    <strong>Success Criteria</strong>
-    <ul class="check-list" style="margin-top:8px">${criteria}</ul>
+    ${managerBlock}
 
-    <div class="divider"></div>
-    <strong>Evidence</strong>
-    <div class="small muted" style="margin-bottom:6px">Auto-collected from GitHub · Backlog · Slack</div>
-    <ul class="check-list">${evidence}</ul>
+    ${evidence ? `<div class="divider"></div><strong>Evidence</strong>
+      <div class="small muted" style="margin-bottom:6px">Auto-collected from GitHub · Backlog · Slack</div>
+      <ul class="check-list">${evidence}</ul>` : ""}
 
-    <div class="modal-foot">
-      <button class="btn" data-close>Close</button>
-      <button class="btn primary" data-close>Edit Objective</button>
-    </div>`);
+    <div class="modal-foot"><button class="btn primary" data-close>Close</button></div>`);
 }
 
-function openCreateModal() {
+function rerenderObjectives(role) {
+  document.getElementById("content").innerHTML = window.Views.objectives(role);
+  window.ViewsWire.objectives(role);
+}
+
+// Lightweight toast via the modal host (mirrors the Feedback view's toast).
+function toastObj(msg) {
   Modal.open(`
-    <div class="modal-head"><h3>Create Objective</h3><button class="close" data-close>×</button></div>
-    <div class="field"><label>Title</label><input type="text" placeholder="e.g. Improve Code Quality" /></div>
-    <div class="grid grid-3">
-      <div class="field"><label>Weight (%)</label><input type="number" value="20" min="0" max="100" /></div>
-      <div class="field"><label>Target Date</label><input type="date" value="2026-09-30" /></div>
-      <div class="field"><label>Period</label>
-        <select><option>Q3 2026</option><option>Q4 2026</option><option>Annual 2026</option></select>
-      </div>
-    </div>
-    <div class="field"><label>Assign To</label>
-      <select>${DB.EMPLOYEES.map((e) => `<option>${UI.esc(e.name)}</option>`).join("")}</select>
-    </div>
-    <div class="field"><label>Success Criteria (one per line)</label>
-      <textarea placeholder="Less than 3 production bugs&#10;PR approval rate > 95%"></textarea>
-    </div>
-    <div class="modal-foot">
-      <button class="btn" data-close>Cancel</button>
-      <button class="btn primary" data-close>Create Objective</button>
-    </div>`);
+    <div class="modal-head"><h3>Heads up</h3><button class="close" data-close>×</button></div>
+    <p class="muted" style="margin-top:0">${UI.esc(msg)}</p>
+    <div class="modal-foot"><button class="btn primary" data-close>OK</button></div>`);
 }

@@ -139,6 +139,10 @@ body {
 .brand { display: flex; align-items: center; gap: 10px; padding: 6px 8px 20px; }
 .brand-mark { color: var(--green-deep); font-size: 20px; }
 .brand-name { font-weight: var(--fw-bold); font-size: var(--fs-section); letter-spacing: var(--ls-tight); }
+/* Full product name is long — keep the sidebar lockup compact and let it wrap cleanly. */
+.sidebar .brand { align-items: flex-start; }
+.sidebar .brand-mark { line-height: 1.25; }
+.sidebar .brand-name { font-size: var(--fs-label); line-height: 1.25; letter-spacing: 0; }
 
 .nav-section { font-size: var(--fs-eyebrow); font-weight: var(--fw-bold); text-transform: uppercase; letter-spacing: .06em; color: var(--faint); padding: 8px 12px 6px; }
 .nav { display: flex; flex-direction: column; gap: 3px; }
@@ -376,47 +380,24 @@ input:focus, textarea:focus, select:focus { outline: none; border-color: var(--a
 .signout-btn:hover { color: var(--text); }
 
 /* ============================================================
-   AUTH / LOGIN (login.html) — reuses the shared token system,
-   so every theme applies here too. Fake auth for the prototype.
+   AUTH / LOGIN (login.html) — centered single column, Google SSO only.
+   Reuses the shared token system so every theme applies here too.
    ============================================================ */
-.auth { display: grid; grid-template-columns: 1.1fr 1fr; min-height: 100vh; }
-
-.auth-brand {
-  background: linear-gradient(160deg, var(--green-deep), var(--green-deep2));
-  color: var(--on-dark); padding: 48px 52px; display: flex; flex-direction: column;
-}
-.auth-brand .brand { padding: 0; }
-.auth-brand .brand-mark, .auth-brand .brand-name { color: var(--on-dark); }
-.auth-pitch { margin: auto 0; max-width: 460px; }
-.auth-pitch h1 { font-size: 34px; font-weight: var(--fw-bold); line-height: 1.2; letter-spacing: var(--ls-tight); margin: 0 0 14px; }
-.auth-pitch p { font-size: 16px; line-height: var(--lh-body); color: rgba(255, 255, 255, .82); margin: 0 0 28px; }
-.auth-points { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 12px; }
-.auth-points li { font-size: var(--fs-body); color: rgba(255, 255, 255, .92); display: flex; gap: 9px; }
-.auth-points .ck { color: var(--lime); font-weight: var(--fw-bold); }
-.auth-foot { margin-top: auto; font-size: var(--fs-eyebrow); color: rgba(255, 255, 255, .6); }
-
-.auth-panel { display: grid; place-items: center; padding: 40px 24px; background: var(--bg); }
-.auth-card { width: 100%; max-width: 400px; }
-.auth-card .brand { display: none; margin-bottom: 20px; padding: 0; }
-.auth-title { font-size: var(--fs-page-title); font-weight: var(--fw-bold); letter-spacing: var(--ls-tight); line-height: var(--lh-heading); margin: 0 0 6px; }
-.auth-sub { color: var(--muted); font-size: var(--fs-body); margin: 0 0 24px; }
-.auth-role { width: 100%; display: inline-flex; margin-bottom: 20px; }
-.auth-role .role-btn { flex: 1; text-align: center; }
-.auth-row { display: flex; align-items: center; justify-content: space-between; margin: -2px 0 18px; }
-.auth-check { display: flex; align-items: center; gap: 7px; font-size: var(--fs-label); color: var(--muted); cursor: pointer; }
-.auth-check input { width: auto; }
-.auth-link { font-size: var(--fs-label); color: var(--accent); text-decoration: none; font-weight: var(--fw-medium); }
-.auth-link:hover { text-decoration: underline; }
-.auth-submit { width: 100%; padding: 11px; }
-.auth-divider { display: flex; align-items: center; gap: 12px; margin: 22px 0; color: var(--faint); font-size: var(--fs-helper); }
+.auth { position: relative; min-height: 100vh; display: grid; place-items: center; padding: 24px; background: var(--surface); overflow: hidden; }
+.auth-card { position: relative; z-index: 1; width: 100%; max-width: 460px; text-align: center; }
+.auth-logo .brand-mark { font-size: 46px; color: var(--accent); }
+.auth-appname { margin-top: 12px; font-size: var(--fs-label); font-weight: var(--fw-semibold); color: var(--muted); }
+.auth-title { margin: 20px 0 0; font-size: var(--fs-page-title); font-weight: var(--fw-bold); letter-spacing: var(--ls-tight); line-height: var(--lh-heading); color: var(--text); }
+.auth-divider { display: flex; align-items: center; gap: 12px; margin: 24px 0; color: var(--faint); font-size: var(--fs-helper); }
 .auth-divider::before, .auth-divider::after { content: ""; flex: 1; height: 1px; background: var(--border); }
-.auth-sso { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-.auth-sso-btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
-.auth-sso-btn .g { font-weight: var(--fw-bold); color: #4285f4; }
-.auth-hint { text-align: center; color: var(--faint); font-size: var(--fs-helper); margin: 20px 0 0; }
 
-@media (max-width: 860px) {
-  .auth { grid-template-columns: 1fr; }
-  .auth-brand { display: none; }
-  .auth-card .brand { display: flex; }
-}
+/* Google sign-in button: white G badge + gradient label (theme-driven). */
+.google-btn { display: flex; align-items: stretch; width: 100%; padding: 0; border: none; cursor: pointer; border-radius: var(--r-btn); overflow: hidden; font-family: inherit; box-shadow: var(--shadow); transition: filter .12s; }
+.google-btn:hover { filter: brightness(1.04); }
+.google-btn .g-badge { flex-shrink: 0; width: 46px; display: grid; place-items: center; background: #fff; color: #4285f4; font-weight: var(--fw-bold); font-size: 18px; }
+.google-btn .g-label { flex: 1; padding: 14px; text-align: center; color: #fff; font-weight: var(--fw-semibold); font-size: var(--fs-button); background: linear-gradient(90deg, var(--accent), var(--lime)); }
+.auth-hint { text-align: center; color: var(--faint); font-size: var(--fs-helper); margin: 22px 0 0; }
+
+/* Subtle decorative wave echoing the brand palette; theme-aware. */
+.auth-wave { position: absolute; left: 0; right: 0; bottom: 0; height: 34vh; z-index: 0; pointer-events: none;
+  background: linear-gradient(180deg, transparent 0%, var(--accent-soft) 100%); opacity: .6; }

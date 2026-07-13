@@ -6,7 +6,7 @@ window.ViewsWire = window.ViewsWire || {};
 
 // Local UI state for the giving-feedback view (resets on reload — fine for a prototype).
 // insightsShown: AI Insights are generated on demand, per selected member (not automatic).
-const ReviewState = { subjectIdx: 0, override: "", insightsShown: false, feedbackText: "" };
+const ReviewState = { subjectIdx: 0, insightsShown: false };
 
 // "My Feedback" — feedback the signed-in user has received.
 window.Views["my-feedback"] = function (role) {
@@ -19,88 +19,96 @@ window.Views["feedback"] = function () {
   return `<div id="feedback-body">${teamView()}</div>`;
 };
 
-/* ---------- Received evaluation (read-only) — shared by both roles ---------- */
-function receivedEvalCard(rec, opts) {
-  opts = opts || {};
-  const strengths = rec.strengths.map((s) => `<li><span class="ck">✓</span> ${UI.esc(s)}</li>`).join("");
-  const improvements = rec.improvements.map((s) => `<li><span class="ck off">○</span> ${UI.esc(s)}</li>`).join("");
-  const evalRole = rec.evaluatorRole ? ` · ${UI.esc(rec.evaluatorRole)}` : "";
-  const ack = opts.inModal ? "" : `<div class="modal-foot" style="margin-top:16px"><button class="btn" id="ack-eval">Acknowledge</button></div>`;
-  return `
-    <div class="card eval-readonly">
-      <div class="spread" style="align-items:flex-start">
-        <div>
-          <div class="card-title" style="margin:0">Feedback by ${UI.esc(rec.evaluator)}${evalRole}</div>
-          <div class="small muted" style="margin-top:4px">Period ${UI.esc(rec.period)} · Finalized ${UI.esc(rec.finalizedOn)}</div>
-        </div>
-        <span class="badge green">Finalized</span>
-      </div>
-      <div class="divider"></div>
-      <div class="row" style="gap:20px;align-items:center">
-        <div class="eval-score"><div class="stat-value">${rec.finalScore}</div><div class="stat-label">Final Score</div></div>
-        <p class="muted" style="margin:0;flex:1">${UI.esc(rec.summary)}</p>
-      </div>
-      <div class="divider"></div>
-      <div class="fb-cols">
-        <div><h4>Strengths</h4><ul class="check-list">${strengths}</ul></div>
-        <div><h4>Improvement Areas</h4><ul class="check-list">${improvements}</ul></div>
-      </div>
-      <div class="divider"></div>
-      <strong>Leader Comments</strong>
-      <p class="muted" style="margin-top:6px">${UI.esc(rec.comments)}</p>
-      ${ack}
-    </div>`;
-}
-
-function historyList(rec) {
-  const hist = (rec && rec.history) || [];
-  const rows = hist.map((h, i) => `
-    <div class="row-item">
-      <span>${UI.esc(h.period)} · <strong>Score ${h.finalScore}</strong> <span class="muted">· by ${UI.esc(h.evaluator)}</span></span>
-      <button class="btn sm" data-hist="${i}">View</button>
-    </div>`).join("") || `<div class="empty">No previous feedback.</div>`;
-  return `<div class="card"><div class="card-title">Feedback History</div>${rows}</div>`;
-}
+/* ---------- My Feedback (received) — per-objective manager evaluations, by half-year ---------- */
+// Which half-year the "My Feedback" view is showing (its own selector).
+const ReceivedState = { period: DB.PERIOD };
 
 function receivedView(role) {
-  const rec = DB.RECEIVED_EVALUATIONS[DB.CURRENT_USER[role].name];
-  if (!rec) {
-    return `<div class="card"><div class="card-title">My Feedback</div>
-      <div class="empty">📋 No feedback yet. Your leader hasn't finalized your feedback for this period.</div></div>`;
-  }
-  return `<div class="stack">
-    <div class="section-head"><h2 class="mb-0">My Feedback</h2></div>
-    ${receivedEvalCard(rec)}
-    ${historyList(rec)}
-  </div>`;
+  const me = DB.CURRENT_USER[role].name;
+  const period = ReceivedState.period;
+  const mine = DB.OBJECTIVES.filter((o) => o.owner === me && o.period === period);
+
+  const cards = mine.map((o) => {
+    const done = o.managerPercent != null;
+    return `<div class="card" style="margin-bottom:12px">
+      <div class="spread" style="align-items:flex-start">
+        <div>
+          <strong>${UI.esc(o.title)}</strong> <span class="tag">${o.category === "organization" ? "Org" : "Personal"}</span>
+          <div class="small muted" style="margin-top:4px">Self ${o.selfPercent != null ? o.selfPercent + "%" : "—"}${done ? ` · Manager ${o.managerPercent}%` : ""}</div>
+        </div>
+        <span class="badge ${done ? "green" : "gray"}">${done ? "Evaluated" : "Pending"}</span>
+      </div>
+      ${done
+        ? `<div class="divider"></div><strong>Manager feedback</strong><p class="muted" style="margin:6px 0 0">${UI.esc(o.managerComment) || "No comment."}</p>`
+        : `<div class="empty" style="margin-top:8px">Awaiting your leader's evaluation.</div>`}
+    </div>`;
+  }).join("") || `<div class="empty">No objectives for ${UI.esc(period)}.</div>`;
+
+  return `
+    ${UI.periodSelect(period, { id: "rcv" })}
+    <div class="section-head"><div><h2 class="mb-0">My Feedback</h2><div class="small muted">Manager evaluations per objective · ${UI.esc(period)}</div></div></div>
+    ${cards}`;
 }
 
-/* ---------- Team evaluations (leader gives/finalizes) ---------- */
+/* ---------- Giving feedback: roster status + AI insights + per-objective evaluation ---------- */
+// Roster badge derived from how many of the member's objectives are manager-evaluated.
 function statusBadgeFor(m) {
-  if (m.status === "finalized") return `<span class="badge green">Finalized ${m.score}</span>`;
-  if (m.status === "in-progress") return `<span class="badge amber">In progress</span>`;
+  const objs = DB.OBJECTIVES.filter((o) => o.owner === m.name && o.period === DB.PERIOD);
+  const evald = objs.filter((o) => o.managerPercent != null).length;
+  if (!objs.length) return `<span class="badge gray">No objectives</span>`;
+  if (evald === objs.length) return `<span class="badge green">Complete</span>`;
+  if (evald > 0) return `<span class="badge amber">${evald}/${objs.length} evaluated</span>`;
   return `<span class="badge gray">Not started</span>`;
 }
 
-// The selected team member's objectives — context for giving feedback.
-// Rows open the read-only objective detail modal (openDetailModal, from views-objectives.js).
-function memberObjectives(subject) {
-  const objs = DB.OBJECTIVES.filter((o) => o.owner === subject.name);
-  const body = objs.length ? objs.map((o) => `
-    <div class="row-item clickable" data-obj="${o.id}">
-      <span style="flex:1">
-        <strong>${UI.esc(o.title)}</strong>
-        <br><small class="muted">${UI.esc(o.period)} · weight ${o.weight}%</small>
-      </span>
-      <span style="width:160px;flex-shrink:0">
-        ${UI.progress(o.progress, o.status)}
-        <div class="spread small muted" style="margin-top:5px"><span>${o.progress}%</span>${UI.statusBadge(o.status)}</div>
-      </span>
-    </div>`).join("")
-    : `<div class="empty">No objectives assigned to ${UI.esc(subject.name)} yet.</div>`;
+// AI Insights (on demand) — data gathering only; does not draft feedback.
+function aiInsightsCard(subject) {
+  const body = ReviewState.insightsShown
+    ? renderInsights(subject)
+    : `<div class="empty" style="padding:22px">Click <strong>Generate AI Insights</strong> to gather supporting data for ${UI.esc(subject.name)}.
+        <div class="small muted" style="margin-top:6px">AI gathers facts only — you write the evaluation.</div></div>`;
   return `<div class="card">
-    <div class="card-title">${UI.esc(subject.name)}'s Objectives <span class="hint">${objs.length} total</span></div>
+    <div class="spread" style="margin-bottom:10px">
+      <span class="ai-tag">✦ AI Insights</span>
+      <button class="btn sm" id="gen-insights">${ReviewState.insightsShown ? "↻ Regenerate" : "✦ Generate AI Insights"}</button>
+    </div>
     ${body}
+  </div>`;
+}
+
+// Per-objective manager evaluation (% + comment). Saving a % locks the member's self-assessment.
+function memberEvalCard(subject) {
+  const objs = DB.OBJECTIVES.filter((o) => o.owner === subject.name && o.period === DB.PERIOD);
+  const org = objs.filter((o) => o.category === "organization");
+  const personal = objs.filter((o) => o.category === "personal");
+  const orgFull = org.length >= DB.LIMITS.organization;
+
+  const row = (o) => {
+    const done = o.managerPercent != null;
+    return `<div style="padding:12px 0;border-bottom:1px solid var(--border)">
+      <div class="spread" style="align-items:flex-start">
+        <div style="flex:1">
+          <strong>${UI.esc(o.title)}</strong> <span class="tag">${o.category === "organization" ? "Org" : "Personal"}</span>
+          <div class="small muted" style="margin-top:4px">Self: ${o.selfPercent != null ? o.selfPercent + "%" : "—"} · ${UI.esc(o.selfReport) || "no self report"}</div>
+        </div>
+        <button class="btn sm ghost" data-obj="${o.id}">Details</button>
+      </div>
+      <div class="row" style="gap:10px;align-items:flex-end;margin-top:8px">
+        <div><label class="small muted">Manager %</label><input type="number" min="0" max="100" value="${done ? o.managerPercent : ""}" data-mgr-pct="${o.id}" placeholder="0–100" style="max-width:110px" /></div>
+        <div style="flex:1"><label class="small muted">Comment</label><input type="text" value="${UI.esc(o.managerComment)}" data-mgr-comment="${o.id}" placeholder="Manager's comment…" /></div>
+        <button class="btn sm primary" data-save-eval="${o.id}">${done ? "Update" : "Save"}</button>
+      </div>
+      ${done ? `<div class="small muted" style="margin-top:6px">✓ Evaluated — the member's self-assessment is locked.</div>` : ""}
+    </div>`;
+  };
+
+  const list = objs.length ? objs.map(row).join("") : `<div class="empty">No objectives for ${UI.esc(subject.name)} yet.</div>`;
+  return `<div class="card">
+    <div class="card-title">Objectives — ${UI.esc(subject.name)} <span class="hint">${UI.esc(DB.PERIOD)}</span>
+      <button class="btn sm" id="add-org" ${orgFull ? "disabled title='Maximum reached'" : ""}>+ Organization Objective</button>
+    </div>
+    <div class="small muted" style="margin-bottom:6px">Organization ${org.length}/${DB.LIMITS.organization} · Personal ${personal.length}/${DB.LIMITS.personal}. Enter your evaluation per objective.</div>
+    ${list}
   </div>`;
 }
 
@@ -116,9 +124,9 @@ function teamView() {
     </div>`;
   }).join("") || `<div class="empty">No team members to give feedback to.</div>`;
 
-  // Right column stacks the member's objectives (context) above the feedback editor.
+  // Right column: AI insights (context) above the per-objective manager evaluation.
   const right = subject
-    ? `<div class="stack">${memberObjectives(subject)}${teamEditor(subject)}</div>`
+    ? `<div class="stack">${aiInsightsCard(subject)}${memberEvalCard(subject)}</div>`
     : `<div class="card"><div class="empty">Select a team member to give feedback.</div></div>`;
 
   return `
@@ -181,62 +189,35 @@ function scheduleEval() {
 // AI Insights = objective, AI-gathered data & observations to help the leader —
 // NOT feedback to hand the employee. Derived from the member's own objectives + evidence.
 function renderInsights(subject) {
-  const objs = DB.OBJECTIVES.filter((o) => o.owner === subject.name);
+  const objs = DB.OBJECTIVES.filter((o) => o.owner === subject.name && o.period === DB.PERIOD);
   if (!objs.length) return `<div class="empty">No objective data available for ${UI.esc(subject.name)} yet.</div>`;
 
-  const avg = Math.round(objs.reduce((a, o) => a + o.progress, 0) / objs.length);
-  const onTrack = objs.filter((o) => o.status === "on-track").length;
-  const atRisk = objs.filter((o) => o.status === "at-risk").length;
+  const avgSelf = Math.round(objs.reduce((a, o) => a + (o.selfPercent || 0), 0) / objs.length);
+  const evaluated = objs.filter((o) => o.managerPercent != null).length;
   const facts = [
-    `${objs.length} active objective${objs.length === 1 ? "" : "s"} · average progress ${avg}%`,
-    `${onTrack} on track · ${atRisk} at risk`,
-    ...objs.map((o) => `${o.title}: ${o.progress}% (${o.status.replace("-", " ")})`),
-    ...objs.flatMap((o) => o.evidence.map((e) => `${e.text} — ${e.src}`)).slice(0, 6),
+    `${objs.length} objective${objs.length === 1 ? "" : "s"} · average self-assessment ${avgSelf}%`,
+    `${evaluated} of ${objs.length} manager-evaluated`,
+    ...objs.map((o) => `${o.title}: self ${o.selfPercent != null ? o.selfPercent + "%" : "—"}${o.selfReport ? ` — ${o.selfReport}` : ""}`),
+    ...objs.flatMap((o) => (o.evidence || []).map((e) => `${e.text} — ${e.src}`)).slice(0, 5),
   ];
   const bullets = facts.map((t) => `<li><span class="ck">✓</span> ${UI.esc(t)}</li>`).join("");
   return `<ul class="check-list">${bullets}</ul>
-    <div class="small muted" style="margin-top:8px">Objective data gathered by AI. Use it to inform the feedback you write below — AI does not draft feedback.</div>`;
-}
-
-function teamEditor(subject) {
-  const mr = DB.MANAGER_REVIEW;
-  const insightsBody = ReviewState.insightsShown
-    ? renderInsights(subject)
-    : `<div class="empty" style="padding:22px">Click <strong>Generate AI Insights</strong> to gather supporting data and observations for ${UI.esc(subject.name)}.
-        <div class="small muted" style="margin-top:6px">AI gathers facts only — you write the feedback.</div></div>`;
-
-  return `<div class="card">
-    <div class="card-title">Give Feedback: ${UI.esc(subject.name)} <span class="hint">${UI.esc(mr.period)}</span></div>
-
-    <div class="spread" style="margin-bottom:10px">
-      <span class="ai-tag">✦ AI Insights</span>
-      <button class="btn sm" id="gen-insights">${ReviewState.insightsShown ? "↻ Regenerate" : "✦ Generate AI Insights"}</button>
-    </div>
-    ${insightsBody}
-
-    <div class="divider"></div>
-    <div class="field"><label>Final score</label><input type="number" id="override" value="${UI.esc(ReviewState.override)}" min="0" max="100" placeholder="Enter score (0–100)" /></div>
-    <div class="field"><label>Your Feedback</label><textarea id="leader-feedback" placeholder="Write your feedback for ${UI.esc(subject.name)}…">${UI.esc(ReviewState.feedbackText)}</textarea></div>
-    <div class="modal-foot"><button class="btn primary" id="finalize">Finalize Feedback</button></div>
-  </div>`;
+    <div class="small muted" style="margin-top:8px">Objective data gathered by AI. Use it to inform your evaluation — AI does not write feedback.</div>`;
 }
 
 /* ---------- Wiring ---------- */
-// "My Feedback" (received) — acknowledge + history modal.
-window.ViewsWire["my-feedback"] = function (role) {
-  const ack = document.getElementById("ack-eval");
-  if (ack) ack.addEventListener("click", () => toast("Feedback acknowledged"));
-
-  const rec = DB.RECEIVED_EVALUATIONS[DB.CURRENT_USER[role].name];
-  if (!rec) return;
-  document.querySelectorAll("[data-hist]").forEach((b) =>
-    b.addEventListener("click", () => {
-      const h = rec.history[Number(b.dataset.hist)];
-      Modal.open(`
-        <div class="modal-head"><h3>Feedback · ${UI.esc(h.period)}</h3><button class="close" data-close>×</button></div>
-        ${receivedEvalCard(h, { inModal: true })}
-        <div class="modal-foot"><button class="btn primary" data-close>Close</button></div>`);
-    }));
+// "My Feedback" (received) — half-year selector (dropdown + stepper), read-only history.
+window.ViewsWire["my-feedback"] = function () {
+  const sel = document.getElementById("rcv-select");
+  if (sel) sel.addEventListener("change", () => { ReceivedState.period = sel.value; rerender(); });
+  const stepTo = (delta) => {
+    const i = DB.PERIODS.indexOf(ReceivedState.period) + delta;
+    if (i >= 0 && i < DB.PERIODS.length) { ReceivedState.period = DB.PERIODS[i]; rerender(); }
+  };
+  const prev = document.getElementById("rcv-prev");
+  if (prev) prev.addEventListener("click", () => stepTo(1));
+  const next = document.getElementById("rcv-next");
+  if (next) next.addEventListener("click", () => stepTo(-1));
 };
 
 // "Feedback" (giving) — leader only.
@@ -263,14 +244,23 @@ function wireTeam() {
   const gen = document.getElementById("gen-insights");
   if (gen) gen.addEventListener("click", () => { ReviewState.insightsShown = true; rerender(); });
 
-  // Preserve the leader's in-progress inputs across re-renders (e.g. when generating insights).
-  const ov = document.getElementById("override");
-  if (ov) ov.addEventListener("input", () => { ReviewState.override = ov.value; });
-  const fb = document.getElementById("leader-feedback");
-  if (fb) fb.addEventListener("input", () => { ReviewState.feedbackText = fb.value; });
+  // Save a per-objective manager evaluation (locks the member's self-assessment).
+  document.querySelectorAll("[data-save-eval]").forEach((btn) =>
+    btn.addEventListener("click", () => {
+      const id = Number(btn.dataset.saveEval);
+      const pctEl = document.querySelector(`[data-mgr-pct="${id}"]`);
+      const cmtEl = document.querySelector(`[data-mgr-comment="${id}"]`);
+      const pct = Number(pctEl.value);
+      if (pctEl.value === "" || Number.isNaN(pct) || pct < 0 || pct > 100) { toast("Enter a manager % (0–100) for this objective."); return; }
+      const o = DB.OBJECTIVES.find((x) => x.id === id);
+      o.managerPercent = pct; o.managerComment = cmtEl.value;
+      toast(`Evaluation saved for “${o.title}”.`);
+      rerender();
+    }));
 
-  const fin = document.getElementById("finalize");
-  if (fin) fin.addEventListener("click", finalizeCurrent);
+  // Add an organization objective for the selected member (respecting the cap).
+  const addOrg = document.getElementById("add-org");
+  if (addOrg) addOrg.addEventListener("click", () => openCreateOrg(DB.TEAM_EVALUATIONS[ReviewState.subjectIdx]));
 
   // Schedule card: Google connect toggle, add, remove
   const gcal = document.getElementById("gcal-toggle");
@@ -290,25 +280,31 @@ function wireTeam() {
 function selectSubject(idx) {
   ReviewState.subjectIdx = idx;
   ReviewState.insightsShown = false; // fresh member → leader regenerates insights explicitly
-  ReviewState.feedbackText = "";
-  const m = DB.TEAM_EVALUATIONS[idx];
-  ReviewState.override = m.score != null ? String(m.score) : ""; // no AI-suggested score
   rerender();
 }
 
-function finalizeCurrent() {
-  const m = DB.TEAM_EVALUATIONS[ReviewState.subjectIdx];
-  const score = Number(ReviewState.override);
-  if (ReviewState.override === "" || Number.isNaN(score) || score < 0 || score > 100) {
-    toast("Enter a final score (0–100) before finalizing."); return;
-  }
-  if (!ReviewState.feedbackText.trim()) {
-    toast("Write your feedback before finalizing — AI insights don't replace your words."); return;
-  }
-  m.status = "finalized";
-  m.score = score;
-  toast(`Feedback finalized for ${m.name} · final score ${m.score}`);
-  rerender();
+// Create an organization objective (manager-assigned) for a team member, capped by DB.LIMITS.
+function openCreateOrg(subject) {
+  const count = DB.OBJECTIVES.filter((o) => o.owner === subject.name && o.category === "organization" && o.period === DB.PERIOD).length;
+  if (count >= DB.LIMITS.organization) { toast(`A member can have at most ${DB.LIMITS.organization} organization objectives.`); return; }
+  Modal.open(`
+    <div class="modal-head"><h3>New Organization Objective</h3><button class="close" data-close>×</button></div>
+    <div class="small muted" style="margin:-4px 0 12px">Assigned to ${UI.esc(subject.name)} · ${count} of ${DB.LIMITS.organization} used</div>
+    <div class="field"><label>Title</label><input type="text" id="new-org-title" placeholder="e.g. Improve Delivery Reliability" /></div>
+    <div class="field"><label>Description</label><textarea id="new-org-desc" placeholder="What should this member achieve this half-year?"></textarea></div>
+    <div class="modal-foot"><button class="btn" data-close>Cancel</button><button class="btn primary" id="create-org-confirm">Assign</button></div>`);
+  document.getElementById("create-org-confirm").addEventListener("click", () => {
+    const title = document.getElementById("new-org-title").value.trim();
+    const desc = document.getElementById("new-org-desc").value.trim();
+    if (!title) { toast("Give the objective a title."); return; }
+    DB.OBJECTIVES.push({
+      id: nextObjectiveId(), title, owner: subject.name, ownerInitials: subject.initials,
+      category: "organization", period: DB.PERIOD, description: desc,
+      selfPercent: null, selfReport: "", managerPercent: null, managerComment: "", evidence: [],
+    });
+    Modal.close();
+    rerender();
+  });
 }
 
 // Re-render whichever feedback view is active (my-feedback | feedback).
