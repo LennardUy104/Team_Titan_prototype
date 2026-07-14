@@ -1,5 +1,7 @@
 # OBS Prototype — Design Coverage vs Function List (FINAL)
 
+> **⚠️ SUPERSEDED (2026-07-14).** This was the pre-build gap assessment. The gaps it lists as ❌ Missing / 🟡 Partial have since been **built on `feature/admin-oms`** and deployed. Every MVP/Important screen a UI prototype can show now exists, and all 6 deviations are reconciled. Current source of truth: **`pm-260714-1019-implementation-progress.md`**. Items closed since this report: User/Team/Department Management + Admin Console (OMS), Manager Assignment, Peer Review (request · anonymous/named · rating + written), Reports & Export, Evidence Review & Curation (+attach), Archive Objectives, reusable Quarterly/Annual templates (create UI + multi-assign), Target Dates, Final Overall Score, data-only AI Insights, Leader-Analytics HR refine. Preview live at `…/Team_Titan_prototype/admin-oms/`.
+
 _Scope of this assessment: the **UI prototype only**. Integrations module and backend-only plumbing (MCP AI layer, Integration Framework, Postgres RLS, real export/ingestion engines) are **excluded / N/A** — they can't live in a UI prototype. Priority filter: MVP + Important. Question answered: does the prototype's design satisfy each function at the UI level?_
 
 **Legend:** ✅ Satisfied (UI demonstrates it) · 🟡 Partial · ❌ Missing (a UI could exist, none does) · ⚠️ Deviated (intentionally changed this session) · ⬜ N/A (backend/integration — excluded)

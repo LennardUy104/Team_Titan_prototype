@@ -3,15 +3,23 @@
 _Date: 2026-07-14 · Branch context: `main` (analytics) + `feature/admin-oms` (everything else) · Scope: UI prototype only_
 
 ## Summary
-All MVP + Important screens a UI prototype can show are now built, and all 6 deviations from the Google Sheet are reconciled. Work split across 4 commits — 1 on `main`, 3 on `feature/admin-oms` (local, unpushed).
+All MVP + Important screens a UI prototype can show are built, all 6 deviations from the Google Sheet are reconciled, and the branch is deployed as a live preview. Work split across 6 feature commits on `feature/admin-oms` (pushed) plus the Analytics change on `main`.
 
 ## Git state
 - [x] `main` `8d940d7` — Analytics KPI refocus (department analytics removed) — **pushed**
-- [x] `feature/admin-oms` `3570419` — Admin/OMS console
+- [x] `feature/admin-oms` `3570419` — Admin/OMS console (Users · Departments · Teams)
 - [x] `feature/admin-oms` `445fa5e` — Peer Review
 - [x] `feature/admin-oms` `ca38f0f` — Reports + Evidence + Archive + deviations
-- [ ] `feature/admin-oms` pushed to remote — _pending your go_
-- [ ] PR into `main` — _pending your go_
+- [x] `feature/admin-oms` `ac480f1` — Reusable objective templates (seeded + apply)
+- [x] `feature/admin-oms` `402d801` — Create-template UI + multi-user assign
+- [x] `feature/admin-oms` **pushed** to `origin/feature/admin-oms`
+- [ ] PR into `main` — _pending_
+
+## Deployment (GitHub Pages, legacy branch mode)
+- Pages serves `main` in **"Deploy from a branch"** mode (whole repo), so the `deploy-pages.yml` Actions workflow is inert.
+- **Main (production):** `https://lennarduy104.github.io/Team_Titan_prototype/prototype/` — 200 (unchanged)
+- **Feature preview:** `https://lennarduy104.github.io/Team_Titan_prototype/admin-oms/` — 200
+- Preview is a **snapshot** of `feature/admin-oms`'s `prototype/` copied into `main/admin-oms/` (commit `53032c0`). Refresh = re-copy + commit to `main` (or add an auto-sync workflow).
 
 ## Pages / screens
 | Screen | Status | Roles | Module |
@@ -39,7 +47,7 @@ All MVP + Important screens a UI prototype can show are now built, and all 6 dev
 - [x] Reports screen + Export (PDF / Excel / CSV, simulated)
 - [x] Evidence Review & Curation (+ attach)
 - [x] Archive Objectives
-- [x] Reusable Quarterly / Annual objective templates (Admin/OMS → Templates, leader-only; seeded + apply)
+- [x] Reusable Quarterly / Annual objective templates (Admin/OMS → Templates, leader-only): seeded templates, **create-template UI** (mirrors objective creation), **Delete**, and **apply to one OR MORE members** with cap + duplicate enforcement
 
 ## Deviations reconciled (prototype vs sheet)
 - [x] Target dates — objectives (explicit or half-year-end default) + KPI cards
@@ -77,9 +85,10 @@ All MVP + Important screens a UI prototype can show are now built, and all 6 dev
 - [ ] Browser click-through — _not possible in this env (no browser); structural validation only_
 
 ## Open questions / decisions for you
-1. Push `feature/admin-oms` and/or open a PR into `main`?
-2. Keep the Analytics KPI change on `main` separate, or fold it in when the branch merges?
-3. Anything to adjust before merge (nav order, wording, mock data)?
+1. Open the PR `feature/admin-oms` → `main`?
+2. Refresh the `/admin-oms/` preview manually per push, or add an auto-sync workflow (`feature/admin-oms` → `main/admin-oms/`)?
+3. Longer term: switch Pages Source to "GitHub Actions" for clean root URLs (changes main's URL from `/prototype/` to `/`), or keep branch mode?
+4. Anything to adjust before merge (nav order, wording, mock data)?
 
 ## Not in scope (backend / integration — excluded by design)
 Integration Framework, GitHub/Backlog/Slack ingestion, MCP AI layer, Postgres RLS, real export engine, real SSO/OAuth.
