@@ -107,21 +107,22 @@ function teamsTab() {
 
 /* ---------- Objective Templates (reusable, seeded — apply to seed a member) ---------- */
 function templatesTab() {
-  const rows = DB.OBJECTIVE_TEMPLATES.map((t) => {
+  const rows = DB.OBJECTIVE_TEMPLATES.length ? DB.OBJECTIVE_TEMPLATES.map((t) => {
     const org = t.items.filter((i) => i.category === "organization").length;
     const per = t.items.filter((i) => i.category === "personal").length;
-    return `<tr class="clickable" data-tpl="${t.id}">
+    return `<tr>
       <td><strong>${UI.esc(t.name)}</strong><br><small class="muted">${UI.esc(t.description)}</small></td>
       <td><span class="tag">${UI.esc(t.cadence)}</span></td>
       <td>${org} org · ${per} personal</td>
-      <td class="right"><button class="btn sm primary" data-tpl-apply="${t.id}">Apply</button></td>
+      <td class="right"><button class="btn sm primary" data-tpl-apply="${t.id}">Apply</button> <button class="btn sm danger" data-tpl-del="${t.id}">Delete</button></td>
     </tr>`;
-  }).join("");
+  }).join("") : `<tr><td colspan="4" class="empty">No templates yet — create one to reuse across members.</td></tr>`;
   return `
     <div class="section-head">
-      <div><h2 class="mb-0">Objective Templates</h2><div class="small muted">${DB.OBJECTIVE_TEMPLATES.length} reusable templates · apply to seed a member's objectives</div></div>
+      <div><h2 class="mb-0">Objective Templates</h2><div class="small muted">${DB.OBJECTIVE_TEMPLATES.length} reusable templates · build once, assign to many</div></div>
+      <button class="btn primary" id="tpl-new">+ New Template</button>
     </div>
-    <div class="small muted" style="margin:-6px 0 12px">Pick a template and assign it to a team member to seed their ${UI.esc(DB.PERIOD)} objectives in one click. Caps enforced (org ${DB.LIMITS.organization} · personal ${DB.LIMITS.personal}); duplicates are skipped.</div>
+    <div class="small muted" style="margin:-6px 0 12px">Build a template from objectives (same fields as creating one), then assign it to one or more members to seed their ${UI.esc(DB.PERIOD)} objectives. Caps enforced (org ${DB.LIMITS.organization} · personal ${DB.LIMITS.personal}); duplicate titles are skipped.</div>
     <div class="card" style="padding:6px 6px">
       <table class="table">
         <thead><tr><th>Template</th><th>Cadence</th><th>Objectives</th><th></th></tr></thead>
@@ -154,7 +155,12 @@ window.ViewsWire.admin = function () {
     if (add) add.addEventListener("click", () => openTeam(null));
     bindRowAction("[data-team-edit]", "tr[data-team]", "teamEdit", "team", openTeam);
   } else {
-    bindRowAction("[data-tpl-apply]", "tr[data-tpl]", "tplApply", "tpl", openApplyTemplate);
+    const nt = document.getElementById("tpl-new");
+    if (nt) nt.addEventListener("click", openTemplateBuilder);
+    document.querySelectorAll("[data-tpl-apply]").forEach((b) =>
+      b.addEventListener("click", () => openApplyTemplate(Number(b.dataset.tplApply))));
+    document.querySelectorAll("[data-tpl-del]").forEach((b) =>
+      b.addEventListener("click", () => deleteTemplate(Number(b.dataset.tplDel))));
   }
 };
 
@@ -240,28 +246,42 @@ function openTeam(id) {
   });
 }
 
-// Apply a template to a chosen member: bulk-create its objectives for the current
-// half-year, honoring caps and skipping duplicates. In-memory only.
+// Apply a template to one OR MORE members: bulk-create its objectives for the
+// current half-year, honoring caps and skipping duplicates. In-memory only.
 function openApplyTemplate(id) {
   const t = DB.OBJECTIVE_TEMPLATES.find((x) => x.id === id);
   if (!t) return;
   const preview = t.items.map((i) =>
     `<li><span class="ck">✓</span> <strong>${UI.esc(i.title)}</strong> <span class="tag">${i.category === "organization" ? "Org" : "Personal"}</span></li>`).join("");
+  const memberChecks = DB.EMPLOYEES.filter((u) => u.active).map((u) =>
+    `<label style="display:flex;align-items:center;gap:8px;padding:4px 0;font-size:var(--fs-label);cursor:pointer"><input type="checkbox" class="tpl-member" value="${UI.esc(u.name)}" style="width:auto" /> ${UI.esc(u.name)} <span class="muted">· ${UI.esc(u.dept)}</span></label>`).join("");
   Modal.open(`
     <div class="modal-head">
-      <div><h3>Apply “${UI.esc(t.name)}”</h3><div class="small muted" style="margin-top:4px">${UI.esc(t.cadence)} · seeds ${t.items.length} objective${t.items.length === 1 ? "" : "s"} for ${UI.esc(DB.PERIOD)}</div></div>
+      <div><h3>Apply “${UI.esc(t.name)}”</h3><div class="small muted" style="margin-top:4px">${UI.esc(t.cadence)} · seeds ${t.items.length} objective${t.items.length === 1 ? "" : "s"} per member for ${UI.esc(DB.PERIOD)}</div></div>
       <button class="close" data-close>×</button>
     </div>
-    <div class="field"><label>Assign to</label><select id="tpl-target">${userOptions("")}</select></div>
-    <ul class="check-list" style="margin:4px 0 0">${preview}</ul>
+    <div class="field"><label>Assign to <span class="muted">· one or more members</span></label>
+      <div style="display:flex;gap:12px;margin-bottom:6px"><button class="btn sm ghost" id="tpl-all">Select all</button><button class="btn sm ghost" id="tpl-none">Clear</button></div>
+      <div style="max-height:180px;overflow:auto;border:1px solid var(--border);border-radius:var(--r-btn);padding:8px 11px">${memberChecks}</div>
+    </div>
+    <label class="small muted" style="display:block;margin-bottom:4px">This template's objectives</label>
+    <ul class="check-list" style="margin:0">${preview}</ul>
     <div class="small muted" style="margin-top:8px">Objectives already at the cap or with a matching title are skipped (org ${DB.LIMITS.organization} · personal ${DB.LIMITS.personal}).</div>
+    <div class="small" id="tpl-apply-msg" style="color:var(--red);margin-top:6px"></div>
     <div class="modal-foot"><button class="btn" data-close>Cancel</button><button class="btn primary" id="tpl-apply-confirm">Apply template</button></div>`);
+  const setAll = (v) => document.querySelectorAll(".tpl-member").forEach((c) => { c.checked = v; });
+  document.getElementById("tpl-all").addEventListener("click", () => setAll(true));
+  document.getElementById("tpl-none").addEventListener("click", () => setAll(false));
   document.getElementById("tpl-apply-confirm").addEventListener("click", () => {
-    const emp = DB.EMPLOYEES.find((u) => u.name === document.getElementById("tpl-target").value);
-    if (!emp) { toastAdmin("Pick a team member."); return; }
-    const r = applyTemplate(t, emp);
+    const names = Array.from(document.querySelectorAll(".tpl-member:checked")).map((c) => c.value);
+    if (!names.length) { document.getElementById("tpl-apply-msg").textContent = "Pick at least one member."; return; }
+    let added = 0, skipped = 0;
+    names.forEach((n) => {
+      const emp = DB.EMPLOYEES.find((u) => u.name === n);
+      if (emp) { const r = applyTemplate(t, emp); added += r.added; skipped += r.skipped; }
+    });
     Modal.close(); rerenderAdmin();
-    toastAdmin(`Applied “${t.name}” to ${emp.name}: ${r.added} objective${r.added === 1 ? "" : "s"} added${r.skipped ? `, ${r.skipped} skipped (cap or duplicate)` : ""}.`);
+    toastAdmin(`Applied “${t.name}” to ${names.length} member${names.length === 1 ? "" : "s"}: ${added} objective${added === 1 ? "" : "s"} added${skipped ? `, ${skipped} skipped (cap or duplicate)` : ""}.`);
   });
 }
 
@@ -282,6 +302,74 @@ function applyTemplate(t, emp) {
     added++;
   });
   return { added, skipped };
+}
+
+// Build a template from objectives, mirroring the objective-creation flow
+// (category · title · description per item). Items accumulate in a live list;
+// name/cadence inputs are preserved because only the list re-paints. In-memory.
+function openTemplateBuilder() {
+  const items = [];
+  const cadOpts = ["Quarterly", "Annual", "Custom"].map((c) => `<option value="${c}">${c}</option>`).join("");
+  Modal.open(`
+    <div class="modal-head"><h3>New Objective Template</h3><button class="close" data-close>×</button></div>
+    <div class="grid grid-2">
+      <div class="field"><label>Template name</label><input type="text" id="tpl-name" placeholder="e.g. Q Engineering Baseline" /></div>
+      <div class="field"><label>Cadence</label><select id="tpl-cadence">${cadOpts}</select></div>
+    </div>
+    <div class="card" style="box-shadow:none;border:1px solid var(--border);margin-bottom:14px">
+      <div class="card-title" style="margin:0 0 8px">Add objective <span class="hint">same fields as creating an objective</span></div>
+      <div class="grid grid-2">
+        <div class="field" style="margin-bottom:8px"><label>Category</label><select id="tpl-item-cat"><option value="organization">Organization</option><option value="personal">Personal</option></select></div>
+        <div class="field" style="margin-bottom:8px"><label>Title</label><input type="text" id="tpl-item-title" placeholder="e.g. Improve Code Quality" /></div>
+      </div>
+      <div class="field" style="margin-bottom:8px"><label>Description</label><textarea id="tpl-item-desc" placeholder="What should this objective achieve?"></textarea></div>
+      <button class="btn sm" id="tpl-item-add">+ Add objective</button>
+    </div>
+    <label class="small muted" style="display:block;margin-bottom:4px">Objectives in this template (<span id="tpl-count">0</span>)</label>
+    <ul class="check-list" id="tpl-items"></ul>
+    <div class="small" id="tpl-msg" style="color:var(--red);margin-top:6px"></div>
+    <div class="modal-foot"><button class="btn" data-close>Cancel</button><button class="btn primary" id="tpl-save">Save template</button></div>`);
+
+  const msg = (t) => { document.getElementById("tpl-msg").textContent = t || ""; };
+  const list = document.getElementById("tpl-items");
+  function paintItems() {
+    list.innerHTML = items.length
+      ? items.map((i, idx) => `<li><span class="ck">✓</span> <strong>${UI.esc(i.title)}</strong> <span class="tag">${i.category === "organization" ? "Org" : "Personal"}</span> <button class="btn sm ghost" data-tpl-item-del="${idx}" title="Remove">✕</button>${i.description ? `<div class="small muted" style="margin-left:22px">${UI.esc(i.description)}</div>` : ""}</li>`).join("")
+      : `<li class="small muted">No objectives added yet.</li>`;
+    document.getElementById("tpl-count").textContent = String(items.length);
+    list.querySelectorAll("[data-tpl-item-del]").forEach((b) =>
+      b.addEventListener("click", () => { items.splice(Number(b.dataset.tplItemDel), 1); paintItems(); }));
+  }
+  paintItems();
+
+  document.getElementById("tpl-item-add").addEventListener("click", () => {
+    const titleEl = document.getElementById("tpl-item-title");
+    const title = titleEl.value.trim();
+    if (!title) { msg("Give the objective a title before adding."); titleEl.focus(); return; }
+    items.push({ category: document.getElementById("tpl-item-cat").value, title, description: document.getElementById("tpl-item-desc").value.trim() });
+    titleEl.value = ""; document.getElementById("tpl-item-desc").value = ""; msg("");
+    paintItems();
+  });
+
+  document.getElementById("tpl-save").addEventListener("click", () => {
+    const name = document.getElementById("tpl-name").value.trim();
+    if (!name) { msg("Give the template a name."); return; }
+    if (!items.length) { msg("Add at least one objective to the template."); return; }
+    const cadence = document.getElementById("tpl-cadence").value;
+    DB.OBJECTIVE_TEMPLATES.push({
+      id: nextId(DB.OBJECTIVE_TEMPLATES), name, cadence,
+      description: `${items.length} objective${items.length === 1 ? "" : "s"} · ${cadence.toLowerCase()}`,
+      items: items.slice(),
+    });
+    Modal.close(); rerenderAdmin(); toastAdmin(`Template “${name}” created.`);
+  });
+}
+
+function deleteTemplate(id) {
+  const t = DB.OBJECTIVE_TEMPLATES.find((x) => x.id === id);
+  if (!t) return;
+  DB.OBJECTIVE_TEMPLATES = DB.OBJECTIVE_TEMPLATES.filter((x) => x.id !== id);
+  rerenderAdmin(); toastAdmin(`Template “${t.name}” deleted.`);
 }
 
 function rerenderAdmin() {
