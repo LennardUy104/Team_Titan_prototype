@@ -9,6 +9,7 @@ const OMS_TABS = [
   { id: "users", label: "Users" },
   { id: "departments", label: "Departments" },
   { id: "teams", label: "Teams" },
+  { id: "templates", label: "Templates" },
 ];
 
 function omsTabs() {
@@ -104,9 +105,35 @@ function teamsTab() {
     </div>`;
 }
 
+/* ---------- Objective Templates (reusable, seeded — apply to seed a member) ---------- */
+function templatesTab() {
+  const rows = DB.OBJECTIVE_TEMPLATES.map((t) => {
+    const org = t.items.filter((i) => i.category === "organization").length;
+    const per = t.items.filter((i) => i.category === "personal").length;
+    return `<tr class="clickable" data-tpl="${t.id}">
+      <td><strong>${UI.esc(t.name)}</strong><br><small class="muted">${UI.esc(t.description)}</small></td>
+      <td><span class="tag">${UI.esc(t.cadence)}</span></td>
+      <td>${org} org · ${per} personal</td>
+      <td class="right"><button class="btn sm primary" data-tpl-apply="${t.id}">Apply</button></td>
+    </tr>`;
+  }).join("");
+  return `
+    <div class="section-head">
+      <div><h2 class="mb-0">Objective Templates</h2><div class="small muted">${DB.OBJECTIVE_TEMPLATES.length} reusable templates · apply to seed a member's objectives</div></div>
+    </div>
+    <div class="small muted" style="margin:-6px 0 12px">Pick a template and assign it to a team member to seed their ${UI.esc(DB.PERIOD)} objectives in one click. Caps enforced (org ${DB.LIMITS.organization} · personal ${DB.LIMITS.personal}); duplicates are skipped.</div>
+    <div class="card" style="padding:6px 6px">
+      <table class="table">
+        <thead><tr><th>Template</th><th>Cadence</th><th>Objectives</th><th></th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`;
+}
+
 window.Views.admin = function () {
   const body = AdminState.tab === "departments" ? departmentsTab()
-    : AdminState.tab === "teams" ? teamsTab() : usersTab();
+    : AdminState.tab === "teams" ? teamsTab()
+    : AdminState.tab === "templates" ? templatesTab() : usersTab();
   return `${omsTabs()}${body}`;
 };
 
@@ -122,10 +149,12 @@ window.ViewsWire.admin = function () {
     const add = document.getElementById("dept-add");
     if (add) add.addEventListener("click", () => openDept(null));
     bindRowAction("[data-dept-edit]", "tr[data-dept]", "deptEdit", "dept", openDept);
-  } else {
+  } else if (AdminState.tab === "teams") {
     const add = document.getElementById("team-add");
     if (add) add.addEventListener("click", () => openTeam(null));
     bindRowAction("[data-team-edit]", "tr[data-team]", "teamEdit", "team", openTeam);
+  } else {
+    bindRowAction("[data-tpl-apply]", "tr[data-tpl]", "tplApply", "tpl", openApplyTemplate);
   }
 };
 
@@ -209,6 +238,50 @@ function openTeam(id) {
     else DB.TEAMS.push({ id: nextId(DB.TEAMS), name, department: dep, lead, members, active: true });
     Modal.close(); rerenderAdmin(); toastAdmin(`Team "${name}" ${id ? "updated" : "created"}.`);
   });
+}
+
+// Apply a template to a chosen member: bulk-create its objectives for the current
+// half-year, honoring caps and skipping duplicates. In-memory only.
+function openApplyTemplate(id) {
+  const t = DB.OBJECTIVE_TEMPLATES.find((x) => x.id === id);
+  if (!t) return;
+  const preview = t.items.map((i) =>
+    `<li><span class="ck">✓</span> <strong>${UI.esc(i.title)}</strong> <span class="tag">${i.category === "organization" ? "Org" : "Personal"}</span></li>`).join("");
+  Modal.open(`
+    <div class="modal-head">
+      <div><h3>Apply “${UI.esc(t.name)}”</h3><div class="small muted" style="margin-top:4px">${UI.esc(t.cadence)} · seeds ${t.items.length} objective${t.items.length === 1 ? "" : "s"} for ${UI.esc(DB.PERIOD)}</div></div>
+      <button class="close" data-close>×</button>
+    </div>
+    <div class="field"><label>Assign to</label><select id="tpl-target">${userOptions("")}</select></div>
+    <ul class="check-list" style="margin:4px 0 0">${preview}</ul>
+    <div class="small muted" style="margin-top:8px">Objectives already at the cap or with a matching title are skipped (org ${DB.LIMITS.organization} · personal ${DB.LIMITS.personal}).</div>
+    <div class="modal-foot"><button class="btn" data-close>Cancel</button><button class="btn primary" id="tpl-apply-confirm">Apply template</button></div>`);
+  document.getElementById("tpl-apply-confirm").addEventListener("click", () => {
+    const emp = DB.EMPLOYEES.find((u) => u.name === document.getElementById("tpl-target").value);
+    if (!emp) { toastAdmin("Pick a team member."); return; }
+    const r = applyTemplate(t, emp);
+    Modal.close(); rerenderAdmin();
+    toastAdmin(`Applied “${t.name}” to ${emp.name}: ${r.added} objective${r.added === 1 ? "" : "s"} added${r.skipped ? `, ${r.skipped} skipped (cap or duplicate)` : ""}.`);
+  });
+}
+
+function applyTemplate(t, emp) {
+  let added = 0, skipped = 0;
+  t.items.forEach((item) => {
+    const cap = item.category === "organization" ? DB.LIMITS.organization : DB.LIMITS.personal;
+    const mine = DB.OBJECTIVES.filter((o) => o.owner === emp.name && o.period === DB.PERIOD && !o.archived);
+    const count = mine.filter((o) => o.category === item.category).length;
+    const dup = mine.some((o) => o.title === item.title);
+    if (count >= cap || dup) { skipped++; return; }
+    DB.OBJECTIVES.push({
+      id: nextId(DB.OBJECTIVES), title: item.title, owner: emp.name, ownerInitials: emp.initials,
+      category: item.category, period: DB.PERIOD, description: item.description, targetDate: "",
+      selfPercent: item.category === "organization" ? null : 0, selfReport: "",
+      managerPercent: null, managerComment: "", evidence: [], archived: false,
+    });
+    added++;
+  });
+  return { added, skipped };
 }
 
 function rerenderAdmin() {

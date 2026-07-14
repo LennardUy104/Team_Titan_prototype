@@ -212,6 +212,38 @@ const OBJECTIVES = [
   },
 ];
 
+// Reusable objective templates (quarterly / annual) for fast setup. Leaders apply a
+// template to seed a member's objectives for the current half-year. Each item is a
+// stub {category, title, description}; caps (org 3 / personal 5) are enforced on apply.
+const OBJECTIVE_TEMPLATES = [
+  {
+    id: 1, name: "Q Engineering Baseline", cadence: "Quarterly",
+    description: "Standard quarterly objectives for an engineer.",
+    items: [
+      { category: "organization", title: "Improve Code Quality", description: "Raise code quality through reviews, tests, and fewer defects." },
+      { category: "organization", title: "Improve Delivery Reliability", description: "Deliver committed work on schedule with fewer overdue items." },
+      { category: "personal", title: "Raise Unit Test Coverage", description: "Move unit test coverage toward the team target." },
+    ],
+  },
+  {
+    id: 2, name: "Annual IC Track", cadence: "Annual",
+    description: "Yearly growth objectives for an individual contributor.",
+    items: [
+      { category: "organization", title: "Own a Major Feature End-to-End", description: "Lead delivery of a significant feature from design to release." },
+      { category: "personal", title: "Grow a Technical Specialty", description: "Deepen expertise in a chosen area (infra, performance, security)." },
+      { category: "personal", title: "Mentor a Teammate", description: "Support a colleague's growth via pairing and reviews." },
+    ],
+  },
+  {
+    id: 3, name: "New Hire Ramp (90-day)", cadence: "Quarterly",
+    description: "Onboarding objectives for a new team member.",
+    items: [
+      { category: "organization", title: "Complete Onboarding & First Delivery", description: "Finish onboarding and ship a first scoped task." },
+      { category: "personal", title: "Learn the Codebase & Tooling", description: "Build working knowledge of the stack, CI, and workflows." },
+    ],
+  },
+];
+
 // Peer reviews. Each request pairs a reviewer with a subject.
 //   reviewer     = who writes the review        subject   = who is reviewed
 //   requestedBy  = who initiated the request     anonymous = hide reviewer from the subject
@@ -393,5 +425,5 @@ window.DB = {
   AVATAR_COLORS, CURRENT_USER, EMPLOYEES, OBJECTIVES, PEER_REVIEWS, MANAGER_REVIEW,
   AI, DEPARTMENTS, TREND_6M, TREND_LABELS, DISTRIBUTION, KPI_TRENDS,
   RECEIVED_EVALUATIONS, TEAM_EVALUATIONS, SCHEDULED_EVALUATIONS, GOOGLE_CAL,
-  PERIOD, PERIODS, LIMITS, MISSION_STATEMENTS, KPIS, TEAMS,
+  PERIOD, PERIODS, LIMITS, MISSION_STATEMENTS, KPIS, TEAMS, OBJECTIVE_TEMPLATES,
 };
