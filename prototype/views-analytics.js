@@ -45,7 +45,7 @@ function objectiveProgressRows(objectives) {
 /* ---------- KPI tracking (definition · measurement · threshold) ---------- */
 function kpiCard(kpi) {
   const k = UI.kpiStat(kpi);
-  const targetLabel = kpi.direction === "lower" ? `Target ≤ ${kpi.target}${kpi.unit}` : `Target ${kpi.target}${kpi.unit}`;
+  const targetLabel = (kpi.direction === "lower" ? `Target ≤ ${kpi.target}${kpi.unit}` : `Target ${kpi.target}${kpi.unit}`) + ` by ${UI.periodEnd(DB.PERIOD)}`;
   return `<div class="card">
     <div class="spread" style="align-items:flex-start">
       <div style="flex:1">
@@ -72,7 +72,7 @@ function kpiSection(scope) {
 
 /* ---------- Employee — personal analytics ---------- */
 function employeeAnalytics() {
-  const mine = DB.OBJECTIVES.filter((o) => o.owner === DB.CURRENT_USER.employee.name && o.period === DB.PERIOD);
+  const mine = DB.OBJECTIVES.filter((o) => o.owner === DB.CURRENT_USER.employee.name && o.period === DB.PERIOD && !o.archived);
   const avg = mine.length ? Math.round(mine.reduce((a, o) => a + UI.objAchieved(o), 0) / mine.length) : 0;
 
   return `
@@ -122,6 +122,12 @@ function leaderAnalytics() {
   const distribution = DB.DISTRIBUTION.map((d) => ({ label: d.band, value: d.count, color: BAND_COLORS[d.band] || "var(--muted)" }));
   const distTotal = DB.DISTRIBUTION.reduce((a, d) => a + d.count, 0);
 
+  // Management insight: how far along the current review cycle is + active headcount.
+  const periodObjs = DB.OBJECTIVES.filter((o) => o.period === DB.PERIOD && !o.archived);
+  const evaluated = periodObjs.filter((o) => o.managerPercent != null).length;
+  const evalPct = periodObjs.length ? Math.round((evaluated / periodObjs.length) * 100) : 0;
+  const activeHead = DB.EMPLOYEES.filter((e) => e.active).length;
+
   const top = [...DB.EMPLOYEES].sort((a, b) => b.score - a.score).slice(0, 4)
     .map((e) => `<div class="row-item"><span>${UI.who(e.name, e.initials, e.dept)}</span><span class="badge green">${e.score}</span></div>`).join("");
 
@@ -141,7 +147,13 @@ function leaderAnalytics() {
 
     <div class="card" style="margin-bottom:16px">
       <div class="card-title">Objective Status Mix <span class="hint">All objectives</span></div>
-      ${UI.insightBar(statusMix(DB.OBJECTIVES.filter((o) => o.period === DB.PERIOD)))}
+      ${UI.insightBar(statusMix(periodObjs))}
+    </div>
+
+    <div class="card" style="margin-bottom:16px">
+      <div class="card-title">Evaluation Progress <span class="hint">${UI.esc(DB.PERIOD)} review cycle</span></div>
+      <div class="spread small muted" style="margin-bottom:6px"><span>${evaluated} of ${periodObjs.length} objectives manager-evaluated</span><span>${activeHead} active members</span></div>
+      ${UI.progress(evalPct, UI.pctStatus(evalPct))}
     </div>
 
     <div class="grid grid-2">

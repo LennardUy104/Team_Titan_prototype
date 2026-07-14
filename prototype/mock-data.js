@@ -82,6 +82,14 @@ const OBJECTIVES = [
     managerPercent: null, managerComment: "",
     evidence: [{ src: "Backlog", text: "Coverage measured at 74%" }],
   },
+  {
+    id: 116, title: "Explore GraphQL Adoption", owner: "Abdul Palala", ownerInitials: "AP",
+    category: "personal", period: PERIOD, archived: true,
+    description: "Spike on GraphQL for internal APIs — deprioritized this half-year.",
+    selfPercent: 20, selfReport: "Initial spike done; shelved in favor of higher-priority work.",
+    managerPercent: null, managerComment: "",
+    evidence: [],
+  },
   // ---- Andre Uy (leader — his own objectives) ----
   {
     id: 107, title: "Grow Delivery Predictability", owner: "Andre Uy", ownerInitials: "AU",

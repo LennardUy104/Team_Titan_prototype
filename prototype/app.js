@@ -53,6 +53,13 @@ const UI = {
     return { attain, bar: Math.max(0, Math.min(100, attain)), cls, label, barTone: attain < 80 ? "at-risk" : "on-track" };
   },
 
+  // Default target date for a half-year period ("2026-2nd" -> "Dec 31, 2026").
+  // Objectives without an explicit targetDate fall back to their period's end.
+  periodEnd(period) {
+    const [y, half] = String(period).split("-");
+    return half === "1st" ? `Jun 30, ${y}` : `Dec 31, ${y}`;
+  },
+
   // Scalable half-year selector: prev/next stepper + dropdown (+ optional "New half-year").
   // `sel` = currently selected period; opts.id = element id prefix; opts.showNew/newDisabled
   // control the New half-year button. Periods come from DB.PERIODS (newest-first).
@@ -268,18 +275,20 @@ const VIEW_TITLES = {
   ai: "AI Assistant",
   "my-feedback": "My Feedback",
   peer: "Peer Review",
+  reports: "Reports",
   feedback: "Feedback",
+  evidence: "Evidence Review",
   admin: "Admin",
 };
 
 function render() {
   // Leader-only views: hide their nav items and bounce employees off them.
-  ["feedback", "admin"].forEach((v) => {
+  ["feedback", "evidence", "admin"].forEach((v) => {
     const nav = document.querySelector(`.nav-item[data-view="${v}"]`);
     if (nav) nav.style.display = App.role === "leader" ? "" : "none";
   });
   if (App.role !== "leader" && App.view === "feedback") App.view = "my-feedback";
-  if (App.role !== "leader" && App.view === "admin") App.view = "analytics";
+  if (App.role !== "leader" && (App.view === "admin" || App.view === "evidence")) App.view = "analytics";
 
   document.getElementById("topbar-title").textContent = VIEW_TITLES[App.view];
 

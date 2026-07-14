@@ -6,7 +6,7 @@ window.Views = window.Views || {};
 window.ViewsWire = window.ViewsWire || {};
 
 // Which half-year is being viewed (persists across nav within the session).
-const ObjState = { period: DB.PERIOD };
+const ObjState = { period: DB.PERIOD, showArchived: false };
 
 function objField(o, key, value) { o[key] = value; } // mutate in-memory mock record
 
@@ -37,15 +37,47 @@ function objectiveCard(o, isCurrent) {
        <p class="small muted" style="margin:6px 0 0">${UI.esc(o.managerComment) || "No comment."}</p>`
     : `<div class="empty" style="padding:14px">Awaiting manager evaluation</div>`;
 
+  const targetLabel = o.targetDate || UI.periodEnd(o.period);
   return `<div class="card" style="margin-bottom:12px">
     <div class="spread" style="align-items:flex-start">
-      <div><strong>${UI.esc(o.title)}</strong><div class="small muted" style="margin-top:2px">${UI.esc(o.period)}</div></div>
-      <span class="badge ${evaluated ? "green" : "gray"}">${evaluated ? "Evaluated" : "In progress"} · ${achieved}%</span>
+      <div><strong>${UI.esc(o.title)}</strong><div class="small muted" style="margin-top:2px">${UI.esc(o.period)} · 🎯 Target ${UI.esc(targetLabel)}</div></div>
+      <div class="row" style="gap:8px;align-items:center">
+        <span class="badge ${evaluated ? "green" : "gray"}">${evaluated ? "Evaluated" : "In progress"} · ${achieved}%</span>
+        ${isCurrent ? `<button class="btn sm ghost" data-archive="${o.id}" title="Archive this objective">🗄</button>` : ""}
+      </div>
     </div>
     <p class="small muted" style="margin:8px 0 12px">${UI.esc(o.description)}</p>
     <div class="fb-cols">
       <div><h4>Self evaluation</h4>${selfBlock}</div>
       <div><h4>Manager evaluation</h4>${managerBlock}</div>
+    </div>
+  </div>`;
+}
+
+// Final Overall Score — one figure computed from per-objective achievement (KISS: simple average).
+function overallScoreCard(objs) {
+  const overall = objs.length ? Math.round(objs.reduce((a, o) => a + UI.objAchieved(o), 0) / objs.length) : 0;
+  const status = UI.pctStatus(overall);
+  return `<div class="card" style="margin-bottom:20px">
+    <div class="spread" style="align-items:flex-start;margin-bottom:10px">
+      <div>
+        <div class="card-title" style="margin:0">Final Overall Score <span class="hint">computed from ${objs.length} objective${objs.length === 1 ? "" : "s"}</span></div>
+        <div class="small muted" style="margin-top:4px">Average achievement across your objectives this half-year.</div>
+      </div>
+      <div style="text-align:right"><div class="stat-value" style="line-height:1">${overall}%</div><div style="margin-top:4px">${UI.statusBadge(status)}</div></div>
+    </div>
+    ${UI.progress(overall, status)}
+  </div>`;
+}
+
+// Compact read-only row for an archived objective, with a Restore action.
+function archivedRow(o) {
+  return `<div class="card" style="margin-bottom:10px;opacity:.75">
+    <div class="spread" style="align-items:flex-start">
+      <div><strong>${UI.esc(o.title)}</strong> <span class="tag">${o.category === "organization" ? "Org" : "Personal"}</span>
+        <div class="small muted" style="margin-top:2px">Archived · self ${o.selfPercent != null ? o.selfPercent + "%" : "—"}</div>
+      </div>
+      <button class="btn sm" data-restore="${o.id}">Restore</button>
     </div>
   </div>`;
 }
@@ -64,7 +96,9 @@ window.Views.objectives = function (role) {
   const me = DB.CURRENT_USER[role].name;
   const period = ObjState.period;
   const isCurrent = period === DB.PERIOD;
-  const mine = DB.OBJECTIVES.filter((o) => o.owner === me && o.period === period);
+  const mineAll = DB.OBJECTIVES.filter((o) => o.owner === me && o.period === period);
+  const mine = mineAll.filter((o) => !o.archived);
+  const archived = mineAll.filter((o) => o.archived);
   const org = mine.filter((o) => o.category === "organization");
   const personal = mine.filter((o) => o.category === "personal");
   const mission = DB.MISSION_STATEMENTS[`${period}|${me}`] || "";
@@ -83,14 +117,22 @@ window.Views.objectives = function (role) {
       : `<p class="muted" style="margin:0">${UI.esc(mission) || "—"}</p>`}
   </div>`;
 
+  const archivedSection = archived.length ? `
+    <div style="margin-top:24px">
+      <button class="btn sm" id="toggle-archived">${ObjState.showArchived ? "▾" : "▸"} Archived (${archived.length})</button>
+      ${ObjState.showArchived ? `<div style="margin-top:12px">${archived.map(archivedRow).join("")}</div>` : ""}
+    </div>` : "";
+
   return `
     ${UI.periodSelect(period, { id: "period", showNew: isCurrent, newDisabled: mine.length === 0 })}
     ${banner}
     ${missionCard}
+    ${overallScoreCard(mine)}
     ${objectiveSection("Organization Objectives", `${org.length} of ${DB.LIMITS.organization} · assigned by your leader`, org, isCurrent, "")}
     <div style="margin-top:24px">
       ${objectiveSection("Personal Objectives", `${personal.length} of ${DB.LIMITS.personal} · set by you`, personal, isCurrent, addPersonal)}
-    </div>`;
+    </div>
+    ${archivedSection}`;
 };
 
 window.ViewsWire.objectives = function (role) {
@@ -128,6 +170,20 @@ window.ViewsWire.objectives = function (role) {
 
   const add = document.getElementById("add-personal");
   if (add) add.addEventListener("click", () => openCreatePersonal(role));
+
+  // Archive / restore / show-archived toggle (in-memory).
+  const toggle = document.getElementById("toggle-archived");
+  if (toggle) toggle.addEventListener("click", () => { ObjState.showArchived = !ObjState.showArchived; rerenderObjectives(role); });
+  document.querySelectorAll("[data-archive]").forEach((b) =>
+    b.addEventListener("click", () => {
+      const o = DB.OBJECTIVES.find((x) => x.id === Number(b.dataset.archive));
+      if (o) { o.archived = true; rerenderObjectives(role); toastObj(`“${o.title}” archived.`); }
+    }));
+  document.querySelectorAll("[data-restore]").forEach((b) =>
+    b.addEventListener("click", () => {
+      const o = DB.OBJECTIVES.find((x) => x.id === Number(b.dataset.restore));
+      if (o) { o.archived = false; rerenderObjectives(role); toastObj(`“${o.title}” restored.`); }
+    }));
 };
 
 // Start the next half-year — only from the current period, only once it has objectives, with confirm.
@@ -158,6 +214,7 @@ function openCreatePersonal(role) {
     <div class="modal-head"><h3>New Personal Objective</h3><button class="close" data-close>×</button></div>
     <div class="field"><label>Title</label><input type="text" id="new-obj-title" placeholder="e.g. Improve Test Coverage" /></div>
     <div class="field"><label>Description</label><textarea id="new-obj-desc" placeholder="What do you want to achieve this half-year?"></textarea></div>
+    <div class="field"><label>Target date <span class="muted">· defaults to the half-year end</span></label><input type="date" id="new-obj-target" /></div>
     <div class="small muted">${count} of ${DB.LIMITS.personal} personal objectives used for ${UI.esc(DB.PERIOD)}.</div>
     <div class="modal-foot">
       <button class="btn" data-close>Cancel</button>
@@ -167,11 +224,12 @@ function openCreatePersonal(role) {
   document.getElementById("create-personal-confirm").addEventListener("click", () => {
     const title = document.getElementById("new-obj-title").value.trim();
     const desc = document.getElementById("new-obj-desc").value.trim();
+    const targetDate = document.getElementById("new-obj-target").value;
     if (!title) { toastObj("Give your objective a title."); return; }
     DB.OBJECTIVES.push({
       id: nextObjectiveId(), title, owner: me.name, ownerInitials: me.initials,
-      category: "personal", period: DB.PERIOD, description: desc,
-      selfPercent: 0, selfReport: "", managerPercent: null, managerComment: "", evidence: [],
+      category: "personal", period: DB.PERIOD, description: desc, targetDate,
+      selfPercent: 0, selfReport: "", managerPercent: null, managerComment: "", evidence: [], archived: false,
     });
     Modal.close();
     rerenderObjectives(role);
@@ -199,7 +257,7 @@ function openDetailModal(id) {
     <div class="modal-head">
       <div>
         <h3>${UI.esc(o.title)}</h3>
-        <div class="row small muted" style="margin-top:6px;gap:10px"><span class="tag">${catLabel}</span> <span>${UI.esc(o.period)}</span></div>
+        <div class="row small muted" style="margin-top:6px;gap:10px"><span class="tag">${catLabel}</span> <span>${UI.esc(o.period)}</span> <span>🎯 Target ${UI.esc(o.targetDate || UI.periodEnd(o.period))}</span></div>
       </div>
       <button class="close" data-close>×</button>
     </div>

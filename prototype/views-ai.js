@@ -2,6 +2,10 @@
 window.Views = window.Views || {};
 window.ViewsWire = window.ViewsWire || {};
 
+// AI Insights are generated on demand and are data-only — the assistant never
+// authors or suggests feedback; the user draws their own conclusions.
+const AiState = { insightsShown: false };
+
 window.Views.ai = function (role) {
   const ai = DB.AI;
   const isLeader = role === "leader";
@@ -9,14 +13,11 @@ window.Views.ai = function (role) {
   // Employees get a self-only assistant; leaders get the full cross-team toolkit.
   const reportList = isLeader ? ai.reports : ai.employeeReports;
   const suggestList = isLeader ? ai.chatSuggestions : ai.employeeChatSuggestions;
-  const feedbackTitle = isLeader ? "✦ AI Suggested Feedback" : "✦ Your Strengths &amp; Focus Areas";
   const greeting = isLeader
     ? "Hi! I'm your OBS AI assistant. Ask me about your team's performance, objectives, or activity. Try a suggestion below."
     : "Hi! I'm your OBS AI assistant. I can answer questions about your own performance and objectives. Try a suggestion below.";
   const scopeHint = isLeader ? "" : `<span class="hint">Scoped to your own data</span>`;
 
-  const strengths = ai.feedback.strengths.map((s) => `<li><span class="ck">✓</span> ${UI.esc(s)}</li>`).join("");
-  const improvements = ai.feedback.improvements.map((s) => `<li><span class="ck off">○</span> ${UI.esc(s)}</li>`).join("");
   const reasons = ai.progress.reasons.map((r) => `<li><span class="ck">✓</span> ${UI.esc(r)}</li>`).join("");
   const reports = reportList.map((r) => `<button class="btn sm" data-report="${UI.esc(r)}">${UI.esc(r)}</button>`).join(" ");
   const suggests = suggestList.map((q) => `<span class="tag" data-ask="${UI.esc(q)}">${UI.esc(q)}</span>`).join("");
@@ -41,11 +42,14 @@ window.Views.ai = function (role) {
         </div>
 
         <div class="card">
-          <div class="card-title">${feedbackTitle}</div>
-          <div class="fb-cols">
-            <div><h4>Strengths</h4><ul class="check-list">${strengths}</ul></div>
-            <div><h4>Improvement Areas</h4><ul class="check-list">${improvements}</ul></div>
+          <div class="spread" style="margin-bottom:10px">
+            <span class="ai-tag">✦ AI Insights</span>
+            <button class="btn sm" id="gen-ai-insights">${AiState.insightsShown ? "↻ Regenerate" : "✦ Generate AI Insights"}</button>
           </div>
+          ${AiState.insightsShown
+            ? aiInsightsBody(ai)
+            : `<div class="empty" style="padding:22px">Click <strong>Generate AI Insights</strong> to gather objective data and observations.
+                <div class="small muted" style="margin-top:6px">AI gathers facts only — it does not write feedback.</div></div>`}
         </div>
 
         <div class="card">
@@ -69,6 +73,25 @@ window.Views.ai = function (role) {
       </div>
     </div>`;
 };
+
+// Data-only insights: observations flagged from activity data + the supporting
+// facts behind them. Explicitly NOT drafted feedback.
+function aiInsightsBody(ai) {
+  const obs = ai.feedback.strengths.map((s) => `<li><span class="ck">✓</span> ${UI.esc(s)}</li>`).join("")
+            + ai.feedback.improvements.map((s) => `<li><span class="ck off">○</span> ${UI.esc(s)}</li>`).join("");
+  const data = ai.progress.reasons.map((r) => `<li><span class="ck">✓</span> ${UI.esc(r)}</li>`).join("");
+  return `<div class="fb-cols">
+      <div><h4>Data-flagged observations</h4><ul class="check-list">${obs}</ul></div>
+      <div><h4>Supporting data</h4><ul class="check-list">${data}</ul></div>
+    </div>
+    <div class="small muted" style="margin-top:8px">AI gathers objective data and observations only — it does not write or suggest feedback. You draw the conclusions.</div>`;
+}
+
+function rerenderAi() {
+  const role = window.App.role;
+  document.getElementById("content").innerHTML = window.Views.ai(role);
+  window.ViewsWire.ai(role);
+}
 
 window.ViewsWire.ai = function (role) {
   const isLeader = role === "leader";
@@ -101,6 +124,10 @@ window.ViewsWire.ai = function (role) {
     input.value = "";
     setTimeout(() => push(answer(text), "bot"), 350); // fake "thinking" delay
   }
+
+  // Generate AI Insights on demand (data-only).
+  const genInsights = document.getElementById("gen-ai-insights");
+  if (genInsights) genInsights.addEventListener("click", () => { AiState.insightsShown = true; rerenderAi(); });
 
   document.getElementById("chat-send").addEventListener("click", () => send());
   input.addEventListener("keydown", (e) => { if (e.key === "Enter") send(); });
