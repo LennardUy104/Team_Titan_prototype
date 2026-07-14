@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>OBS</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" />
+  <link rel="stylesheet" href="styles.css" />
+  <!-- Auth gate: unauthenticated visitors are sent to the login page (fake auth, prototype). -->
+  <script>
+    try {
+      if (localStorage.getItem("titan-authed") !== "1") window.location.replace("login.html");
+    } catch (e) { /* private mode — allow through */ }
+  </script>
+</head>
+<body>
+  <div class="app">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <div class="brand">
+        <span class="brand-mark">◆</span>
+        <span class="brand-name">Sun PH Objective Monitoring System (OBS)</span>
+      </div>
+      <div class="nav-section">Workspace</div>
+      <nav class="nav" id="nav">
+        <button class="nav-item active" data-view="analytics">
+          <span class="nav-ico">▦</span> Analytics
+        </button>
+        <button class="nav-item" data-view="objectives">
+          <span class="nav-ico">◎</span> My Objectives
+        </button>
+        <button class="nav-item" data-view="ai">
+          <span class="nav-ico">✦</span> AI Assistant
+        </button>
+        <button class="nav-item" data-view="my-feedback">
+          <span class="nav-ico">✓</span> My Feedback
+        </button>
+        <button class="nav-item" data-view="peer">
+          <span class="nav-ico">★</span> Peer Review
+        </button>
+        <button class="nav-item" data-view="reports">
+          <span class="nav-ico">▤</span> Reports
+        </button>
+        <button class="nav-item" data-view="feedback">
+          <span class="nav-ico">✎</span> Feedback
+        </button>
+        <button class="nav-item" data-view="evidence">
+          <span class="nav-ico">📎</span> Evidence Review
+        </button>
+        <button class="nav-item" data-view="admin">
+          <span class="nav-ico">⚙</span> Admin
+        </button>
+      </nav>
+      <div class="sidebar-foot">
+        <button class="btn sm signout-btn" id="signout"><span>⤶</span> Sign out</button>
+        <div class="mini-note">Prototype · dummy data</div>
+      </div>
+    </aside>
+
+    <!-- Main -->
+    <div class="main">
+      <header class="topbar">
+        <div class="topbar-title" id="topbar-title">Analytics</div>
+        <div class="topbar-right">
+          <button class="theme-switch" id="theme-switch" title="Change the look — cycle theme options">
+            <span class="theme-dot" id="theme-dot"></span>
+            <span class="theme-name" id="theme-name">Evergreen</span>
+            <span class="theme-caret">▾</span>
+          </button>
+          <div class="role-switch" id="role-switch">
+            <button class="role-btn active" data-role="employee">Employee</button>
+            <button class="role-btn" data-role="leader">Leader</button>
+          </div>
+          <div class="user-chip" id="user-chip">
+            <span class="avatar" id="user-avatar">AP</span>
+            <span class="user-name" id="user-name">Abdul Palala</span>
+          </div>
+        </div>
+      </header>
+
+      <main class="content" id="content"><!-- views render here --></main>
+    </div>
+  </div>
+
+  <!-- Modal host -->
+  <div class="modal-overlay" id="modal-overlay" hidden>
+    <div class="modal" id="modal"></div>
+  </div>
+
+  <!-- Data first, then view modules, then the app controller -->
+  <script src="mock-data.js"></script>
+  <script src="views-analytics.js"></script>
+  <script src="views-objectives.js"></script>
+  <script src="views-ai.js"></script>
+  <script src="views-reviews.js"></script>
+  <script src="views-peer.js"></script>
+  <script src="views-reports.js"></script>
+  <script src="views-evidence.js"></script>
+  <script src="views-admin.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

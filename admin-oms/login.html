@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>OBS — Sign in</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" />
+  <link rel="stylesheet" href="styles.css" />
+  <!-- Apply the theme chosen in the app before paint, so login matches. -->
+  <script>
+    try {
+      var t = localStorage.getItem("titan-theme");
+      if (t && t !== "evergreen") document.documentElement.setAttribute("data-theme", t);
+    } catch (e) { /* private mode */ }
+  </script>
+</head>
+<body>
+  <main class="auth">
+    <div class="auth-card">
+      <div class="auth-logo"><span class="brand-mark">◆</span></div>
+      <div class="auth-appname">Sun PH Objective Monitoring System (OBS)</div>
+      <h1 class="auth-title">Login to continue</h1>
+
+      <div class="auth-divider"><span>with</span></div>
+
+      <button type="button" class="google-btn" id="google-signin">
+        <span class="g-badge">G</span>
+        <span class="g-label">Sign in with Google</span>
+      </button>
+
+      <p class="auth-hint">Prototype — sign-in is simulated; no real Google account is used.</p>
+    </div>
+    <div class="auth-wave" aria-hidden="true"></div>
+  </main>
+
+  <script src="login.js"></script>
+</body>
+</html>
