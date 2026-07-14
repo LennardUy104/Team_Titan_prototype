@@ -1,11 +1,17 @@
-# Publishes the static prototype (prototype/) to GitHub Pages.
-# Repo Settings → Pages → Source must be set to "GitHub Actions" (one-time).
+# Publishes the static prototype to GitHub Pages as ONE site with two builds:
+#   /            -> main branch prototype (production)
+#   /admin-oms/  -> feature/admin-oms branch prototype (preview option)
+# Repo Settings -> Pages -> Source must be "GitHub Actions" (one-time).
+# Deploys always run from main (GitHub's github-pages environment restricts
+# deployments to the default branch), so it checks out both branches itself.
+# Triggers: push to main, or manual "Run workflow" to refresh the preview after
+# pushing to feature/admin-oms.
 name: Deploy prototype to GitHub Pages
 
 on:
   push:
     branches: [main]
-  workflow_dispatch: # allow manual runs from the Actions tab
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -24,16 +30,32 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
+      - name: Checkout main (production)
         uses: actions/checkout@v4
+        with:
+          ref: main
+          path: main-src
+
+      - name: Checkout feature/admin-oms (preview)
+        uses: actions/checkout@v4
+        with:
+          ref: feature/admin-oms
+          path: feature-src
+
+      - name: Assemble site (main at root, admin-oms preview in /admin-oms)
+        run: |
+          mkdir -p _site
+          cp -a main-src/prototype/. _site/
+          mkdir -p _site/admin-oms
+          cp -a feature-src/prototype/. _site/admin-oms/
 
       - name: Configure Pages
         uses: actions/configure-pages@v5
 
-      - name: Upload prototype as Pages artifact
+      - name: Upload site as Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: ./prototype
+          path: ./_site
 
       - name: Deploy to GitHub Pages
         id: deployment
