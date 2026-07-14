@@ -1,0 +1,57 @@
+# Auto-sync the feature/admin-oms prototype into main/admin-oms/ so the live
+# GitHub Pages preview refreshes on every push to this branch.
+#
+# Pages serves `main` in legacy "Deploy from a branch" mode, so the preview must
+# live as a folder on `main`. This workflow copies feature/admin-oms:prototype
+# into main/admin-oms/ and pushes to main; the legacy Pages build then republishes
+# https://<owner>.github.io/Team_Titan_prototype/admin-oms/.
+#
+# Requirement (one-time): Settings -> Actions -> General -> Workflow permissions
+# must be "Read and write permissions" so GITHUB_TOKEN can push to main.
+name: Sync admin-oms preview to main
+
+on:
+  push:
+    branches: [feature/admin-oms]
+    paths: ["prototype/**"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+# Don't overlap syncs; keep only the latest.
+concurrency:
+  group: sync-admin-oms
+  cancel-in-progress: true
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Fetch feature/admin-oms
+        run: git fetch origin feature/admin-oms
+
+      - name: Sync prototype into admin-oms/ (exclude plans/)
+        run: |
+          rm -rf admin-oms
+          mkdir -p admin-oms
+          git archive --format=tar FETCH_HEAD:prototype | tar -xf - -C admin-oms
+          rm -rf admin-oms/plans
+
+      - name: Commit & push to main if changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if [ -n "$(git status --porcelain admin-oms)" ]; then
+            git add admin-oms
+            git commit -m "chore(preview): sync admin-oms preview from feature/admin-oms"
+            git push origin main
+          else
+            echo "Preview already up to date — nothing to sync."
+          fi
