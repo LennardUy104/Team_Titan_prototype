@@ -39,6 +39,20 @@ const UI = {
     return pct >= 100 ? "completed" : pct >= 70 ? "on-track" : pct > 0 ? "at-risk" : "draft";
   },
 
+  // KPI attainment vs target → { attain%, bar% (0–100), badge class + label, bar tone }.
+  // Threshold logic: exceeded (≥100%) · on track (≥80%) · at risk (<80%).
+  kpiStat(kpi) {
+    let attain;
+    if (kpi.direction === "lower") attain = kpi.value <= 0 ? 150 : (kpi.target / kpi.value) * 100;
+    else attain = kpi.target <= 0 ? 0 : (kpi.value / kpi.target) * 100;
+    attain = Math.round(attain);
+    let cls, label;
+    if (attain >= 100) { cls = "green"; label = "Exceeded"; }
+    else if (attain >= 80) { cls = "blue"; label = "On Track"; }
+    else { cls = "amber"; label = "At Risk"; }
+    return { attain, bar: Math.max(0, Math.min(100, attain)), cls, label, barTone: attain < 80 ? "at-risk" : "on-track" };
+  },
+
   // Scalable half-year selector: prev/next stepper + dropdown (+ optional "New half-year").
   // `sel` = currently selected period; opts.id = element id prefix; opts.showNew/newDisabled
   // control the New half-year button. Periods come from DB.PERIODS (newest-first).

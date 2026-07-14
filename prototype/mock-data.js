@@ -292,6 +292,19 @@ const DISTRIBUTION = [
   { band: "At Risk", count: 2 },
 ];
 
+// KPIs for the Analytics page. direction "higher" = bigger is better; "lower" = smaller is better.
+// scope: employee (personal/project) | team (leader view).
+const KPIS = [
+  { id: 1, scope: "employee", name: "Objective Achievement", definition: "Avg achieved % across your objectives this half-year.", value: 78, unit: "%", target: 80, direction: "higher" },
+  { id: 2, scope: "employee", name: "On-time Delivery", definition: "Share of tasks completed on or before their due date.", value: 88, unit: "%", target: 90, direction: "higher" },
+  { id: 3, scope: "employee", name: "Peer Rating", definition: "Average rating from peer feedback.", value: 4.4, unit: "/5", target: 4.5, direction: "higher" },
+  { id: 4, scope: "employee", name: "Rework Rate", definition: "Share of work sent back for fixes (lower is better).", value: 6, unit: "%", target: 5, direction: "lower" },
+  { id: 5, scope: "team", name: "Team Objective Completion", definition: "Avg objective achievement across the team.", value: 78, unit: "%", target: 85, direction: "higher" },
+  { id: 6, scope: "team", name: "On-time Delivery", definition: "Team-wide share of work delivered on schedule.", value: 88, unit: "%", target: 90, direction: "higher" },
+  { id: 7, scope: "team", name: "Escaped Defects", definition: "Regressions reaching production per month (lower is better).", value: 5, unit: "", target: 3, direction: "lower" },
+  { id: 8, scope: "team", name: "Avg Peer Rating", definition: "Average peer rating across the team.", value: 4.3, unit: "/5", target: 4.2, direction: "higher" },
+];
+
 const KPI_TRENDS = [
   { label: "Objective completion", value: "78%", delta: "+6%", up: true },
   { label: "Avg peer rating",       value: "4.3", delta: "+0.2", up: true },
@@ -351,5 +364,5 @@ window.DB = {
   AVATAR_COLORS, CURRENT_USER, EMPLOYEES, OBJECTIVES, PEER_REVIEWS, MANAGER_REVIEW,
   AI, DEPARTMENTS, TREND_6M, TREND_LABELS, DISTRIBUTION, KPI_TRENDS,
   RECEIVED_EVALUATIONS, TEAM_EVALUATIONS, SCHEDULED_EVALUATIONS, GOOGLE_CAL,
-  PERIOD, PERIODS, LIMITS, MISSION_STATEMENTS,
+  PERIOD, PERIODS, LIMITS, MISSION_STATEMENTS, KPIS,
 };
