@@ -267,6 +267,7 @@ const VIEW_TITLES = {
   objectives: "My Objectives",
   ai: "AI Assistant",
   "my-feedback": "My Feedback",
+  peer: "Peer Review",
   feedback: "Feedback",
   admin: "Admin",
 };

@@ -204,12 +204,25 @@ const OBJECTIVES = [
   },
 ];
 
-// Peer review requests + history.
+// Peer reviews. Each request pairs a reviewer with a subject.
+//   reviewer     = who writes the review        subject   = who is reviewed
+//   requestedBy  = who initiated the request     anonymous = hide reviewer from the subject
+//   pending items are awaiting the reviewer; completed carry rating + written feedback.
 const PEER_REVIEWS = [
-  { id: 201, subject: "Maria Santos", subjectInitials: "MS", requestedBy: "Andre Uy", status: "pending",   due: "2026-07-18", anonymous: false },
-  { id: 202, subject: "Kevin Reyes",  subjectInitials: "KR", requestedBy: "Andre Uy", status: "pending",   due: "2026-07-20", anonymous: true  },
-  { id: 203, subject: "Lisa Tan",     subjectInitials: "LT", requestedBy: "Self",     status: "completed", due: "2026-07-05", anonymous: false, rating: 4, note: "Great attention to edge cases; could share test plans earlier." },
-  { id: 204, subject: "Grace Lim",    subjectInitials: "GL", requestedBy: "Andre Uy", status: "completed", due: "2026-06-28", anonymous: true,  rating: 5, note: "Exceptional design leadership this quarter." },
+  // --- Abdul Palala is the reviewer (his "To Review") ---
+  { id: 301, subject: "Maria Santos", subjectInitials: "MS", reviewer: "Abdul Palala", reviewerInitials: "AP", requestedBy: "Andre Uy", status: "pending",   due: "2026-07-18", anonymous: false, rating: null, wentWell: "", toImprove: "" },
+  { id: 302, subject: "John Cruz",    subjectInitials: "JC", reviewer: "Abdul Palala", reviewerInitials: "AP", requestedBy: "Andre Uy", status: "pending",   due: "2026-07-22", anonymous: true,  rating: null, wentWell: "", toImprove: "" },
+  { id: 303, subject: "Lisa Tan",     subjectInitials: "LT", reviewer: "Abdul Palala", reviewerInitials: "AP", requestedBy: "Self",     status: "completed", due: "2026-07-05", anonymous: false, rating: 4, wentWell: "Sharp eye for edge cases; test plans are thorough.", toImprove: "Share test plans earlier in the sprint." },
+  // --- Abdul Palala is the subject (his "About Me") ---
+  { id: 304, subject: "Abdul Palala", subjectInitials: "AP", reviewer: "Maria Santos", reviewerInitials: "MS", requestedBy: "Andre Uy", status: "completed", due: "2026-06-28", anonymous: false, rating: 5, wentWell: "Reliable delivery and consistently strong code reviews.", toImprove: "Could document key decisions a bit more." },
+  { id: 305, subject: "Abdul Palala", subjectInitials: "AP", reviewer: "Grace Lim",    reviewerInitials: "GL", requestedBy: "Andre Uy", status: "completed", due: "2026-06-30", anonymous: true,  rating: 4, wentWell: "Very responsive in cross-team work.", toImprove: "Occasionally over-commits on scope." },
+  // --- Abdul requested a peer review of Maria (his "My Requests") ---
+  { id: 309, subject: "Maria Santos", subjectInitials: "MS", reviewer: "John Cruz",    reviewerInitials: "JC", requestedBy: "Abdul Palala", status: "pending", due: "2026-07-21", anonymous: false, rating: null, wentWell: "", toImprove: "" },
+  // --- Andre Uy is the reviewer (his "To Review") ---
+  { id: 306, subject: "Grace Lim",    subjectInitials: "GL", reviewer: "Andre Uy", reviewerInitials: "AU", requestedBy: "Self",     status: "pending",   due: "2026-07-19", anonymous: false, rating: null, wentWell: "", toImprove: "" },
+  { id: 307, subject: "Kevin Reyes",  subjectInitials: "KR", reviewer: "Andre Uy", reviewerInitials: "AU", requestedBy: "Andre Uy", status: "completed", due: "2026-07-01", anonymous: false, rating: 3, wentWell: "Solid, dependable individual contributions.", toImprove: "More proactive communication with the team." },
+  // --- Andre Uy is the subject (his "About Me") ---
+  { id: 308, subject: "Andre Uy",     subjectInitials: "AU", reviewer: "Maria Santos", reviewerInitials: "MS", requestedBy: "Self", status: "completed", due: "2026-06-25", anonymous: true, rating: 5, wentWell: "Clear direction and unblocks the team fast.", toImprove: "Delegate more of the smaller decisions." },
 ];
 
 // Manager review — AI-suggested comments waiting for accept/reject.
