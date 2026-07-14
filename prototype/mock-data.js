@@ -9,16 +9,18 @@ const CURRENT_USER = {
   leader:   { name: "Andre Uy",    initials: "AU", title: "Engineering Leader" },
 };
 
-// Team roster reused across every module.
+// User directory — treated as the mock "Central DB". Identity fields (name, email,
+// manager, role/title) are owned there (read-only in OBS). obsRole + active + dept
+// grouping are the OBS-side attributes managed in the Admin console.
 const EMPLOYEES = [
-  { id: 1, name: "Abdul Palala",  initials: "AP", role: "Software Engineer", dept: "Engineering", score: 88, trend: "up",   status: "on-track" },
-  { id: 2, name: "Maria Santos",  initials: "MS", role: "Senior Engineer",   dept: "Engineering", score: 92, trend: "up",   status: "on-track" },
-  { id: 3, name: "John Cruz",     initials: "JC", role: "Software Engineer", dept: "Engineering", score: 64, trend: "down", status: "at-risk"  },
-  { id: 4, name: "Lisa Tan",      initials: "LT", role: "QA Engineer",       dept: "Quality",     score: 79, trend: "up",   status: "on-track" },
-  { id: 5, name: "Kevin Reyes",   initials: "KR", role: "Software Engineer", dept: "Engineering", score: 71, trend: "flat", status: "on-track" },
-  { id: 6, name: "Grace Lim",     initials: "GL", role: "Product Designer",  dept: "Design",      score: 85, trend: "up",   status: "on-track" },
-  { id: 7, name: "Rainiel Dejito",initials: "RD", role: "HR Partner",        dept: "People",      score: 90, trend: "flat", status: "on-track" },
-  { id: 8, name: "Andre Uy",      initials: "AU", role: "Eng. Manager",      dept: "Engineering", score: 87, trend: "up",   status: "on-track" },
+  { id: 1, name: "Abdul Palala",  initials: "AP", role: "Software Engineer", dept: "Engineering", email: "abdul.palala@company.com",  manager: "Andre Uy",   obsRole: "employee", active: true,  score: 88, trend: "up",   status: "on-track" },
+  { id: 2, name: "Maria Santos",  initials: "MS", role: "Senior Engineer",   dept: "Engineering", email: "maria.santos@company.com",  manager: "Andre Uy",   obsRole: "employee", active: true,  score: 92, trend: "up",   status: "on-track" },
+  { id: 3, name: "John Cruz",     initials: "JC", role: "Software Engineer", dept: "Engineering", email: "john.cruz@company.com",     manager: "Andre Uy",   obsRole: "employee", active: true,  score: 64, trend: "down", status: "at-risk"  },
+  { id: 4, name: "Lisa Tan",      initials: "LT", role: "QA Engineer",       dept: "QA",          email: "lisa.tan@company.com",      manager: "Andre Uy",   obsRole: "employee", active: true,  score: 79, trend: "up",   status: "on-track" },
+  { id: 5, name: "Kevin Reyes",   initials: "KR", role: "Software Engineer", dept: "Engineering", email: "kevin.reyes@company.com",   manager: "Andre Uy",   obsRole: "employee", active: false, score: 71, trend: "flat", status: "on-track" },
+  { id: 6, name: "Grace Lim",     initials: "GL", role: "Product Designer",  dept: "Engineering", email: "grace.lim@company.com",     manager: "Andre Uy",   obsRole: "employee", active: true,  score: 85, trend: "up",   status: "on-track" },
+  { id: 7, name: "Rainiel Dejito",initials: "RD", role: "People Partner",    dept: "Admin",       email: "rainiel.dejito@company.com",manager: "Diana Cruz", obsRole: "leader",   active: true,  score: 90, trend: "flat", status: "on-track" },
+  { id: 8, name: "Andre Uy",      initials: "AU", role: "Eng. Manager",      dept: "Engineering", email: "andre.uy@company.com",      manager: "Diana Cruz", obsRole: "leader",   active: true,  score: 87, trend: "up",   status: "on-track" },
 ];
 
 // Review cycle is a half-year. PERIODS newest-first; index 0 is the current (open) one.
@@ -272,12 +274,18 @@ const AI = {
   employeeChatFallback: "I can only see your own performance data in this workspace. Try asking about your objectives, delivery score, or GitHub activity.",
 };
 
-// HR / analytics aggregates.
+// Departments — managed in Admin/OMS (kept out of Analytics). Admin · Engineering · QA.
 const DEPARTMENTS = [
-  { name: "Engineering", score: 84, headcount: 22, completion: 78 },
-  { name: "Design",      score: 86, headcount: 6,  completion: 82 },
-  { name: "Quality",     score: 80, headcount: 5,  completion: 74 },
-  { name: "People",      score: 89, headcount: 4,  completion: 91 },
+  { id: 1, name: "Admin",       description: "People, HR and operations.",     lead: "Rainiel Dejito", active: true },
+  { id: 2, name: "Engineering", description: "Product engineering squads.",    lead: "Andre Uy",       active: true },
+  { id: 3, name: "QA",          description: "Quality assurance and testing.", lead: "Lisa Tan",       active: true },
+];
+
+// Teams — managed in Admin/OMS. Each maps to a department and holds members.
+const TEAMS = [
+  { id: 1, name: "Platform", department: "Engineering", lead: "Andre Uy", members: ["Abdul Palala", "Maria Santos"], active: true },
+  { id: 2, name: "Web",      department: "Engineering", lead: "Andre Uy", members: ["John Cruz", "Kevin Reyes", "Grace Lim"], active: true },
+  { id: 3, name: "QA Guild", department: "QA",          lead: "Lisa Tan", members: ["Lisa Tan"], active: true },
 ];
 
 // Employee performance trend (last 6 months, %).
@@ -364,5 +372,5 @@ window.DB = {
   AVATAR_COLORS, CURRENT_USER, EMPLOYEES, OBJECTIVES, PEER_REVIEWS, MANAGER_REVIEW,
   AI, DEPARTMENTS, TREND_6M, TREND_LABELS, DISTRIBUTION, KPI_TRENDS,
   RECEIVED_EVALUATIONS, TEAM_EVALUATIONS, SCHEDULED_EVALUATIONS, GOOGLE_CAL,
-  PERIOD, PERIODS, LIMITS, MISSION_STATEMENTS, KPIS,
+  PERIOD, PERIODS, LIMITS, MISSION_STATEMENTS, KPIS, TEAMS,
 };

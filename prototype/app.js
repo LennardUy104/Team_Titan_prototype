@@ -268,14 +268,17 @@ const VIEW_TITLES = {
   ai: "AI Assistant",
   "my-feedback": "My Feedback",
   feedback: "Feedback",
+  admin: "Admin",
 };
 
 function render() {
-  // "Feedback" (giving feedback to others) is leader-only.
-  const feedbackNav = document.querySelector('.nav-item[data-view="feedback"]');
-  if (feedbackNav) feedbackNav.style.display = App.role === "leader" ? "" : "none";
-  // Guard: an employee must never sit on the giving-feedback view.
+  // Leader-only views: hide their nav items and bounce employees off them.
+  ["feedback", "admin"].forEach((v) => {
+    const nav = document.querySelector(`.nav-item[data-view="${v}"]`);
+    if (nav) nav.style.display = App.role === "leader" ? "" : "none";
+  });
   if (App.role !== "leader" && App.view === "feedback") App.view = "my-feedback";
+  if (App.role !== "leader" && App.view === "admin") App.view = "analytics";
 
   document.getElementById("topbar-title").textContent = VIEW_TITLES[App.view];
 
