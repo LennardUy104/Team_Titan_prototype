@@ -14,8 +14,8 @@ window.Views.ai = function (role) {
   const reportList = isLeader ? ai.reports : ai.employeeReports;
   const suggestList = isLeader ? ai.chatSuggestions : ai.employeeChatSuggestions;
   const greeting = isLeader
-    ? "Hi! I'm your OBS AI assistant. Ask me about your team's performance, objectives, or activity. Try a suggestion below."
-    : "Hi! I'm your OBS AI assistant. I can answer questions about your own performance and objectives. Try a suggestion below.";
+    ? "Hi! I'm your OMS AI assistant. Ask me about your team's performance, objectives, or activity. Try a suggestion below."
+    : "Hi! I'm your OMS AI assistant. I can answer questions about your own performance and objectives. Try a suggestion below.";
   const scopeHint = isLeader ? "" : `<span class="hint">Scoped to your own data</span>`;
 
   const reasons = ai.progress.reasons.map((r) => `<li><span class="ck">✓</span> ${UI.esc(r)}</li>`).join("");

@@ -1,15 +1,14 @@
 /* Titan prototype — Admin / Organization Management System (OMS). Leader-only.
-   Users: central-DB-backed (identity read-only; OBS manages role/dept/status).
-   Departments & Teams: organizational structure managed here (out of Analytics). */
+   Users: central-DB-backed (identity read-only; OMS manages role/dept/status).
+   Templates + Peer Review criteria are managed here. */
 window.Views = window.Views || {};
 window.ViewsWire = window.ViewsWire || {};
 
 const AdminState = { tab: "users" };
 const OMS_TABS = [
   { id: "users", label: "Users" },
-  { id: "departments", label: "Departments" },
-  { id: "teams", label: "Teams" },
   { id: "templates", label: "Templates" },
+  { id: "peer", label: "Peer Review" },
 ];
 
 function omsTabs() {
@@ -18,10 +17,7 @@ function omsTabs() {
   return `<div class="role-switch" id="oms-tabs" style="margin-bottom:18px">${tabs}</div>`;
 }
 
-// Shared <option> builders.
-function userOptions(sel) {
-  return DB.EMPLOYEES.map((u) => `<option value="${UI.esc(u.name)}" ${u.name === sel ? "selected" : ""}>${UI.esc(u.name)}</option>`).join("");
-}
+// Shared <option> builder (used by Manage User → department select).
 function deptOptions(sel) {
   return DB.DEPARTMENTS.filter((d) => d.active).map((d) => `<option value="${UI.esc(d.name)}" ${d.name === sel ? "selected" : ""}>${UI.esc(d.name)}</option>`).join("");
 }
@@ -45,61 +41,10 @@ function usersTab() {
       <div><h2 class="mb-0">Users</h2><div class="small muted">${DB.EMPLOYEES.length} users · <span class="badge blue" style="vertical-align:middle">Synced from Central DB</span></div></div>
       <button class="btn sm" id="oms-sync">↻ Sync from Central DB</button>
     </div>
-    <div class="small muted" style="margin:-6px 0 12px">Identity (name, email, manager) is owned by the Central DB. OBS manages access role, department, and status.</div>
+    <div class="small muted" style="margin:-6px 0 12px">Identity (name, email, manager) is owned by the Central DB. OMS manages access role, department, and status.</div>
     <div class="card" style="padding:6px 6px">
       <table class="table">
-        <thead><tr><th>User</th><th>Department</th><th>Manager</th><th>OBS Role</th><th>Status</th><th></th></tr></thead>
-        <tbody>${rows}</tbody>
-      </table>
-    </div>`;
-}
-
-/* ---------- Departments ---------- */
-function departmentsTab() {
-  const rows = DB.DEPARTMENTS.map((d) => {
-    const members = DB.EMPLOYEES.filter((e) => e.dept === d.name).length;
-    const teams = DB.TEAMS.filter((t) => t.department === d.name).length;
-    return `<tr class="clickable" data-dept="${d.id}">
-      <td><strong>${UI.esc(d.name)}</strong><br><small class="muted">${UI.esc(d.description)}</small></td>
-      <td>${UI.esc(d.lead)}</td>
-      <td>${teams}</td>
-      <td>${members}</td>
-      <td>${statusBadge(d.active)}</td>
-      <td class="right"><button class="btn sm" data-dept-edit="${d.id}">Manage</button></td>
-    </tr>`;
-  }).join("");
-  return `
-    <div class="section-head">
-      <div><h2 class="mb-0">Departments</h2><div class="small muted">${DB.DEPARTMENTS.length} departments · organizational grouping</div></div>
-      <button class="btn primary" id="dept-add">+ Add Department</button>
-    </div>
-    <div class="card" style="padding:6px 6px">
-      <table class="table">
-        <thead><tr><th>Department</th><th>Lead</th><th>Teams</th><th>Members</th><th>Status</th><th></th></tr></thead>
-        <tbody>${rows}</tbody>
-      </table>
-    </div>`;
-}
-
-/* ---------- Teams ---------- */
-function teamsTab() {
-  const rows = DB.TEAMS.map((t) => `
-    <tr class="clickable" data-team="${t.id}">
-      <td><strong>${UI.esc(t.name)}</strong></td>
-      <td><span class="tag">${UI.esc(t.department)}</span></td>
-      <td>${UI.esc(t.lead)}</td>
-      <td>${t.members.length}</td>
-      <td>${statusBadge(t.active)}</td>
-      <td class="right"><button class="btn sm" data-team-edit="${t.id}">Manage</button></td>
-    </tr>`).join("");
-  return `
-    <div class="section-head">
-      <div><h2 class="mb-0">Teams</h2><div class="small muted">${DB.TEAMS.length} teams · membership &amp; department mapping</div></div>
-      <button class="btn primary" id="team-add">+ Add Team</button>
-    </div>
-    <div class="card" style="padding:6px 6px">
-      <table class="table">
-        <thead><tr><th>Team</th><th>Department</th><th>Lead</th><th>Members</th><th>Status</th><th></th></tr></thead>
+        <thead><tr><th>User</th><th>Department</th><th>Manager</th><th>OMS Role</th><th>Status</th><th></th></tr></thead>
         <tbody>${rows}</tbody>
       </table>
     </div>`;
@@ -131,10 +76,32 @@ function templatesTab() {
     </div>`;
 }
 
+/* ---------- Peer Review Template (single active template of rated criteria) ---------- */
+function peerReviewTab() {
+  const t = DB.PEER_REVIEW_TEMPLATE;
+  const rows = t.criteria.length ? t.criteria.map((c, idx) => `
+    <tr>
+      <td class="muted">${idx + 1}</td>
+      <td><strong>${UI.esc(c.label)}</strong>${c.description ? `<br><small class="muted">${UI.esc(c.description)}</small>` : ""}</td>
+      <td class="right"><button class="btn sm" data-crit-edit="${UI.esc(c.id)}">Edit</button> <button class="btn sm danger" data-crit-del="${UI.esc(c.id)}">Delete</button></td>
+    </tr>`).join("") : `<tr><td colspan="3" class="empty">No criteria yet — add one so reviewers have something to rate.</td></tr>`;
+  return `
+    <div class="section-head">
+      <div><h2 class="mb-0">Peer Review Template</h2><div class="small muted">${t.criteria.length} rated criteria · applied to every peer review</div></div>
+      <button class="btn primary" id="crit-new">+ Add criterion</button>
+    </div>
+    <div class="small muted" style="margin:-6px 0 12px">Each criterion appears as a 1–5 star rating in every reviewer's “Write review” form. Editing here shapes new reviews; reviews already submitted keep the criteria they were scored on.</div>
+    <div class="card" style="padding:6px 6px">
+      <table class="table">
+        <thead><tr><th style="width:48px">#</th><th>Criterion</th><th></th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`;
+}
+
 window.Views.admin = function () {
-  const body = AdminState.tab === "departments" ? departmentsTab()
-    : AdminState.tab === "teams" ? teamsTab()
-    : AdminState.tab === "templates" ? templatesTab() : usersTab();
+  const body = AdminState.tab === "templates" ? templatesTab()
+    : AdminState.tab === "peer" ? peerReviewTab() : usersTab();
   return `${omsTabs()}${body}`;
 };
 
@@ -146,14 +113,13 @@ window.ViewsWire.admin = function () {
     const sync = document.getElementById("oms-sync");
     if (sync) sync.addEventListener("click", () => toastAdmin(`Synced ${DB.EMPLOYEES.length} users from the Central DB.`));
     bindRowAction("[data-manage]", "tr[data-user]", "manage", "user", openManageUser);
-  } else if (AdminState.tab === "departments") {
-    const add = document.getElementById("dept-add");
-    if (add) add.addEventListener("click", () => openDept(null));
-    bindRowAction("[data-dept-edit]", "tr[data-dept]", "deptEdit", "dept", openDept);
-  } else if (AdminState.tab === "teams") {
-    const add = document.getElementById("team-add");
-    if (add) add.addEventListener("click", () => openTeam(null));
-    bindRowAction("[data-team-edit]", "tr[data-team]", "teamEdit", "team", openTeam);
+  } else if (AdminState.tab === "peer") {
+    const cn = document.getElementById("crit-new");
+    if (cn) cn.addEventListener("click", () => openCriterion(null));
+    document.querySelectorAll("[data-crit-edit]").forEach((b) =>
+      b.addEventListener("click", () => openCriterion(b.dataset.critEdit)));
+    document.querySelectorAll("[data-crit-del]").forEach((b) =>
+      b.addEventListener("click", () => deleteCriterion(b.dataset.critDel)));
   } else {
     const nt = document.getElementById("tpl-new");
     if (nt) nt.addEventListener("click", openTemplateBuilder);
@@ -183,66 +149,20 @@ function openManageUser(id) {
       <div><h3>${UI.esc(u.name)}</h3><div class="small muted" style="margin-top:4px">${UI.esc(u.email)} · reports to ${UI.esc(u.manager || "—")}</div></div>
       <button class="close" data-close>×</button>
     </div>
-    <div class="small muted" style="margin:-4px 0 14px">Identity synced from Central DB (read-only). Edit OBS access below.</div>
+    <div class="small muted" style="margin:-4px 0 14px">Identity synced from Central DB (read-only). Edit OMS access below.</div>
     <div class="grid grid-2">
-      <div class="field"><label>OBS Role</label>
+      <div class="field"><label>OMS Role</label>
         <select id="mng-role"><option value="employee" ${u.obsRole !== "leader" ? "selected" : ""}>Employee</option><option value="leader" ${u.obsRole === "leader" ? "selected" : ""}>Leader</option></select>
       </div>
       <div class="field"><label>Department</label><select id="mng-dept">${deptOptions(u.dept)}</select></div>
     </div>
-    <label style="display:flex;align-items:center;gap:8px;font-size:var(--fs-label);cursor:pointer"><input type="checkbox" id="mng-active" style="width:auto" ${u.active ? "checked" : ""} /> Active in OBS</label>
+    <label style="display:flex;align-items:center;gap:8px;font-size:var(--fs-label);cursor:pointer"><input type="checkbox" id="mng-active" style="width:auto" ${u.active ? "checked" : ""} /> Active in OMS</label>
     <div class="modal-foot"><button class="btn" data-close>Cancel</button><button class="btn primary" id="mng-save">Save</button></div>`);
   document.getElementById("mng-save").addEventListener("click", () => {
     u.obsRole = document.getElementById("mng-role").value;
     u.dept = document.getElementById("mng-dept").value;
     u.active = document.getElementById("mng-active").checked;
-    Modal.close(); rerenderAdmin(); toastAdmin(`Updated OBS access for ${u.name}.`);
-  });
-}
-
-function openDept(id) {
-  const d = id ? DB.DEPARTMENTS.find((x) => x.id === id) : { name: "", description: "", lead: "", active: true };
-  Modal.open(`
-    <div class="modal-head"><h3>${id ? "Edit" : "New"} Department</h3><button class="close" data-close>×</button></div>
-    <div class="field"><label>Name</label><input type="text" id="d-name" value="${UI.esc(d.name)}" placeholder="e.g. Engineering" /></div>
-    <div class="field"><label>Description</label><textarea id="d-desc" placeholder="What this department does…">${UI.esc(d.description)}</textarea></div>
-    <div class="field"><label>Lead</label><select id="d-lead">${userOptions(d.lead)}</select></div>
-    ${id ? `<label style="display:flex;align-items:center;gap:8px;font-size:var(--fs-label);cursor:pointer"><input type="checkbox" id="d-active" style="width:auto" ${d.active ? "checked" : ""}/> Active</label>` : ""}
-    <div class="modal-foot"><button class="btn" data-close>Cancel</button><button class="btn primary" id="d-save">${id ? "Save" : "Create"}</button></div>`);
-  document.getElementById("d-save").addEventListener("click", () => {
-    const name = document.getElementById("d-name").value.trim();
-    if (!name) { toastAdmin("Department needs a name."); return; }
-    const desc = document.getElementById("d-desc").value.trim();
-    const lead = document.getElementById("d-lead").value;
-    if (id) { d.name = name; d.description = desc; d.lead = lead; d.active = document.getElementById("d-active").checked; }
-    else DB.DEPARTMENTS.push({ id: nextId(DB.DEPARTMENTS), name, description: desc, lead, active: true });
-    Modal.close(); rerenderAdmin(); toastAdmin(`Department "${name}" ${id ? "updated" : "created"}.`);
-  });
-}
-
-function openTeam(id) {
-  const t = id ? DB.TEAMS.find((x) => x.id === id) : { name: "", department: (DB.DEPARTMENTS[0] || {}).name || "", lead: "", members: [], active: true };
-  const memberChecks = DB.EMPLOYEES.filter((u) => u.active).map((u) =>
-    `<label style="display:flex;align-items:center;gap:8px;padding:4px 0;font-size:var(--fs-label);cursor:pointer"><input type="checkbox" class="tm-member" value="${UI.esc(u.name)}" style="width:auto" ${t.members.includes(u.name) ? "checked" : ""}/> ${UI.esc(u.name)} <span class="muted">· ${UI.esc(u.dept)}</span></label>`).join("");
-  Modal.open(`
-    <div class="modal-head"><h3>${id ? "Edit" : "New"} Team</h3><button class="close" data-close>×</button></div>
-    <div class="grid grid-2">
-      <div class="field"><label>Name</label><input type="text" id="t-name" value="${UI.esc(t.name)}" placeholder="e.g. Platform" /></div>
-      <div class="field"><label>Department</label><select id="t-dept">${deptOptions(t.department)}</select></div>
-    </div>
-    <div class="field"><label>Lead</label><select id="t-lead">${userOptions(t.lead)}</select></div>
-    <div class="field"><label>Members</label><div style="max-height:180px;overflow:auto;border:1px solid var(--border);border-radius:var(--r-btn);padding:8px 11px">${memberChecks}</div></div>
-    ${id ? `<label style="display:flex;align-items:center;gap:8px;font-size:var(--fs-label);cursor:pointer"><input type="checkbox" id="t-active" style="width:auto" ${t.active ? "checked" : ""}/> Active</label>` : ""}
-    <div class="modal-foot"><button class="btn" data-close>Cancel</button><button class="btn primary" id="t-save">${id ? "Save" : "Create"}</button></div>`);
-  document.getElementById("t-save").addEventListener("click", () => {
-    const name = document.getElementById("t-name").value.trim();
-    if (!name) { toastAdmin("Team needs a name."); return; }
-    const members = Array.from(document.querySelectorAll(".tm-member:checked")).map((c) => c.value);
-    const dep = document.getElementById("t-dept").value;
-    const lead = document.getElementById("t-lead").value;
-    if (id) { t.name = name; t.department = dep; t.lead = lead; t.members = members; t.active = document.getElementById("t-active").checked; }
-    else DB.TEAMS.push({ id: nextId(DB.TEAMS), name, department: dep, lead, members, active: true });
-    Modal.close(); rerenderAdmin(); toastAdmin(`Team "${name}" ${id ? "updated" : "created"}.`);
+    Modal.close(); rerenderAdmin(); toastAdmin(`Updated OMS access for ${u.name}.`);
   });
 }
 
@@ -370,6 +290,41 @@ function deleteTemplate(id) {
   if (!t) return;
   DB.OBJECTIVE_TEMPLATES = DB.OBJECTIVE_TEMPLATES.filter((x) => x.id !== id);
   rerenderAdmin(); toastAdmin(`Template “${t.name}” deleted.`);
+}
+
+/* ---------- Peer Review criterion CRUD (writes to DB.PEER_REVIEW_TEMPLATE) ---------- */
+// Criterion ids are strings ("c1", "c2", …); derive the next from the numeric suffix.
+function nextCritId(arr) {
+  const max = arr.reduce((m, x) => Math.max(m, Number(String(x.id).replace(/\D/g, "")) || 0), 0);
+  return "c" + (max + 1);
+}
+
+function openCriterion(id) {
+  const t = DB.PEER_REVIEW_TEMPLATE;
+  const c = id ? t.criteria.find((x) => x.id === id) : { label: "", description: "" };
+  if (!c) return;
+  Modal.open(`
+    <div class="modal-head"><h3>${id ? "Edit" : "New"} criterion</h3><button class="close" data-close>×</button></div>
+    <div class="field"><label>Criterion name</label><input type="text" id="crit-label" value="${UI.esc(c.label)}" placeholder="e.g. Communication" /></div>
+    <div class="field"><label>Description <span class="hint">shown to reviewers to guide their rating</span></label><textarea id="crit-desc" placeholder="e.g. Shares information clearly and keeps others informed.">${UI.esc(c.description)}</textarea></div>
+    <div class="small muted" style="margin:-4px 0 4px">Reviewers rate this from 1 to 5 stars.</div>
+    <div class="modal-foot"><button class="btn" data-close>Cancel</button><button class="btn primary" id="crit-save">${id ? "Save" : "Add"}</button></div>`);
+  document.getElementById("crit-save").addEventListener("click", () => {
+    const label = document.getElementById("crit-label").value.trim();
+    if (!label) { toastAdmin("Give the criterion a name."); return; }
+    const description = document.getElementById("crit-desc").value.trim();
+    if (id) { c.label = label; c.description = description; }
+    else t.criteria.push({ id: nextCritId(t.criteria), label, description });
+    Modal.close(); rerenderAdmin(); toastAdmin(`Criterion “${label}” ${id ? "updated" : "added"}.`);
+  });
+}
+
+function deleteCriterion(id) {
+  const t = DB.PEER_REVIEW_TEMPLATE;
+  const c = t.criteria.find((x) => x.id === id);
+  if (!c) return;
+  t.criteria = t.criteria.filter((x) => x.id !== id);
+  rerenderAdmin(); toastAdmin(`Criterion “${c.label}” deleted.`);
 }
 
 function rerenderAdmin() {

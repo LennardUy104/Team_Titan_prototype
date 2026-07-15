@@ -277,18 +277,19 @@ const VIEW_TITLES = {
   peer: "Peer Review",
   reports: "Reports",
   feedback: "Feedback",
-  evidence: "Evidence Review",
   admin: "Admin",
 };
 
 function render() {
+  // Evidence is no longer a standalone page — it lives on each objective now.
+  if (App.view === "evidence") App.view = "objectives";
   // Leader-only views: hide their nav items and bounce employees off them.
-  ["feedback", "evidence", "admin"].forEach((v) => {
+  ["feedback", "admin"].forEach((v) => {
     const nav = document.querySelector(`.nav-item[data-view="${v}"]`);
     if (nav) nav.style.display = App.role === "leader" ? "" : "none";
   });
   if (App.role !== "leader" && App.view === "feedback") App.view = "my-feedback";
-  if (App.role !== "leader" && (App.view === "admin" || App.view === "evidence")) App.view = "analytics";
+  if (App.role !== "leader" && App.view === "admin") App.view = "analytics";
 
   document.getElementById("topbar-title").textContent = VIEW_TITLES[App.view];
 

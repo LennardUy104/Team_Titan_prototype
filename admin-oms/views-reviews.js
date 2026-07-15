@@ -93,12 +93,15 @@ function memberEvalCard(subject) {
         </div>
         <button class="btn sm ghost" data-obj="${o.id}">Details</button>
       </div>
-      <div class="row" style="gap:10px;align-items:flex-end;margin-top:8px">
-        <div><label class="small muted">Manager %</label><input type="number" min="0" max="100" value="${done ? o.managerPercent : ""}" data-mgr-pct="${o.id}" placeholder="0–100" style="max-width:110px" /></div>
-        <div style="flex:1"><label class="small muted">Comment</label><input type="text" value="${UI.esc(o.managerComment)}" data-mgr-comment="${o.id}" placeholder="Manager's comment…" /></div>
-        <button class="btn sm primary" data-save-eval="${o.id}">${done ? "Update" : "Save"}</button>
+      <div style="margin-top:8px">
+        <label class="small muted">Manager evaluation · score each key result</label>
+        ${window.ObjOKR.krManagerList(o)}
+        <div class="row" style="gap:10px;align-items:flex-end;margin-top:8px">
+          <div style="flex:1"><label class="small muted">Overall comment</label><input type="text" value="${UI.esc(o.managerComment)}" data-mgr-comment="${o.id}" placeholder="Manager's comment…" /></div>
+          <button class="btn sm primary" data-save-eval="${o.id}">${done ? "Update" : "Save"}</button>
+        </div>
       </div>
-      ${done ? `<div class="small muted" style="margin-top:6px">✓ Evaluated — the member's self-assessment is locked.</div>` : ""}
+      ${done ? `<div class="small muted" style="margin-top:6px">✓ Evaluated (${o.managerPercent}% overall) — the member's self-assessment is locked.</div>` : ""}
     </div>`;
   };
 
@@ -248,13 +251,12 @@ function wireTeam() {
   document.querySelectorAll("[data-save-eval]").forEach((btn) =>
     btn.addEventListener("click", () => {
       const id = Number(btn.dataset.saveEval);
-      const pctEl = document.querySelector(`[data-mgr-pct="${id}"]`);
-      const cmtEl = document.querySelector(`[data-mgr-comment="${id}"]`);
-      const pct = Number(pctEl.value);
-      if (pctEl.value === "" || Number.isNaN(pct) || pct < 0 || pct > 100) { toast("Enter a manager % (0–100) for this objective."); return; }
       const o = DB.OBJECTIVES.find((x) => x.id === id);
-      o.managerPercent = pct; o.managerComment = cmtEl.value;
-      toast(`Evaluation saved for “${o.title}”.`);
+      const res = window.ObjOKR.saveManagerEval(o); // per-KR scores → o.managerPercent
+      if (!res.ok) { toast(res.error); return; }
+      const cmtEl = document.querySelector(`[data-mgr-comment="${id}"]`);
+      if (cmtEl) o.managerComment = cmtEl.value;
+      toast(`Evaluation saved for “${o.title}” (${o.managerPercent}% overall).`);
       rerender();
     }));
 
@@ -300,7 +302,7 @@ function openCreateOrg(subject) {
     DB.OBJECTIVES.push({
       id: nextObjectiveId(), title, owner: subject.name, ownerInitials: subject.initials,
       category: "organization", period: DB.PERIOD, description: desc,
-      selfPercent: null, selfReport: "", managerPercent: null, managerComment: "", evidence: [],
+      selfPercent: null, selfReport: "", managerPercent: null, managerComment: "", evidence: [], keyResults: [],
     });
     Modal.close();
     rerender();

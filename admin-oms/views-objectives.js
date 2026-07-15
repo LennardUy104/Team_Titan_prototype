@@ -1,4 +1,4 @@
-/* Titan prototype — My Objectives view (OBS template model, half-year cycle).
+/* Titan prototype — My Objectives view (OMS template model, half-year cycle).
    Visible period tabs (like the spreadsheet): current half is editable, past
    halves are read-only history. Mission Statement + Organization (max 3) +
    Personal (max 5) objectives, each with self + manager assessment. */
@@ -48,9 +48,10 @@ function objectiveCard(o, isCurrent) {
     </div>
     <p class="small muted" style="margin:8px 0 12px">${UI.esc(o.description)}</p>
     <div class="fb-cols">
-      <div><h4>Self evaluation</h4>${selfBlock}</div>
+      <div><h4>Self evaluation</h4>${selfBlock}${window.ObjOKR.krSelfList(o, canEdit)}</div>
       <div><h4>Manager evaluation</h4>${managerBlock}</div>
     </div>
+    ${window.ObjEvidence.panel(o)}
   </div>`;
 }
 
@@ -184,6 +185,11 @@ window.ViewsWire.objectives = function (role) {
       const o = DB.OBJECTIVES.find((x) => x.id === Number(b.dataset.restore));
       if (o) { o.archived = false; rerenderObjectives(role); toastObj(`“${o.title}” restored.`); }
     }));
+
+  // Evidence & Measurement panel controls (curate / remove / attach / edit).
+  window.ObjEvidence.wire(() => rerenderObjectives(role));
+  // Key Result current-value updates + KR editor.
+  window.ObjOKR.wireSelf(() => rerenderObjectives(role));
 };
 
 // Start the next half-year — only from the current period, only once it has objectives, with confirm.
@@ -229,7 +235,7 @@ function openCreatePersonal(role) {
     DB.OBJECTIVES.push({
       id: nextObjectiveId(), title, owner: me.name, ownerInitials: me.initials,
       category: "personal", period: DB.PERIOD, description: desc, targetDate,
-      selfPercent: 0, selfReport: "", managerPercent: null, managerComment: "", evidence: [], archived: false,
+      selfPercent: 0, selfReport: "", managerPercent: null, managerComment: "", evidence: [], keyResults: [], archived: false,
     });
     Modal.close();
     rerenderObjectives(role);
@@ -240,14 +246,13 @@ function nextObjectiveId() {
   return DB.OBJECTIVES.reduce((max, o) => Math.max(max, o.id), 100) + 1;
 }
 
-// Read-only objective detail (also opened from the Feedback tab).
+// Objective detail (opened from the Feedback tab). Shows the full record —
+// self + manager evaluation AND the Evidence & Measurement panel — so the leader
+// never has to leave the objective to review how it's measured and its evidence.
 function openDetailModal(id) {
   const o = DB.OBJECTIVES.find((x) => x.id === id);
   if (!o) return;
   const catLabel = o.category === "organization" ? "Organization" : "Personal";
-  const evidence = (o.evidence || []).length
-    ? o.evidence.map((e) => `<li><span class="ck">✓</span> ${UI.esc(e.text)} <span class="tag">${UI.esc(e.src)}</span></li>`).join("")
-    : "";
   const managerBlock = o.managerPercent != null
     ? `<div class="spread"><strong>Manager evaluation</strong><span>${o.managerPercent}%</span></div>
        <p class="muted small" style="margin-top:6px">${UI.esc(o.managerComment) || "No comment."}</p>`
@@ -270,11 +275,13 @@ function openDetailModal(id) {
     <div class="divider"></div>
     ${managerBlock}
 
-    ${evidence ? `<div class="divider"></div><strong>Evidence</strong>
-      <div class="small muted" style="margin-bottom:6px">Auto-collected from GitHub · Backlog · Slack</div>
-      <ul class="check-list">${evidence}</ul>` : ""}
+    ${window.ObjOKR.krDetail(o)}
+
+    ${window.ObjEvidence.block(o)}
 
     <div class="modal-foot"><button class="btn primary" data-close>Close</button></div>`);
+  // Mutations (curate/remove/attach/edit) reopen the modal with fresh data.
+  window.ObjEvidence.wire(() => openDetailModal(id));
 }
 
 function rerenderObjectives(role) {

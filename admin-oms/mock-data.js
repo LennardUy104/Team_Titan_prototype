@@ -10,8 +10,8 @@ const CURRENT_USER = {
 };
 
 // User directory — treated as the mock "Central DB". Identity fields (name, email,
-// manager, role/title) are owned there (read-only in OBS). obsRole + active + dept
-// grouping are the OBS-side attributes managed in the Admin console.
+// manager, role/title) are owned there (read-only in OMS). obsRole + active + dept
+// grouping are the OMS-side attributes managed in the Admin console.
 const EMPLOYEES = [
   { id: 1, name: "Abdul Palala",  initials: "AP", role: "Software Engineer", dept: "Engineering", email: "abdul.palala@company.com",  manager: "Andre Uy",   obsRole: "employee", active: true,  score: 88, trend: "up",   status: "on-track" },
   { id: 2, name: "Maria Santos",  initials: "MS", role: "Senior Engineer",   dept: "Engineering", email: "maria.santos@company.com",  manager: "Andre Uy",   obsRole: "employee", active: true,  score: 92, trend: "up",   status: "on-track" },
@@ -37,7 +37,7 @@ const MISSION_STATEMENTS = {
   "2025-2nd|Abdul Palala": "Deliver billing v1 and improve release confidence.",
 };
 
-// Objectives. Two categories per the OBS template:
+// Objectives. Two categories per the OMS template:
 //   organization = requested by the manager/company (max 3)
 //   personal     = set by the member themselves (max 5)
 // Dual assessment: self (percent + report) and manager (percent + comment).
@@ -244,26 +244,61 @@ const OBJECTIVE_TEMPLATES = [
   },
 ];
 
-// Peer reviews. Each request pairs a reviewer with a subject.
-//   reviewer     = who writes the review        subject   = who is reviewed
-//   requestedBy  = who initiated the request     anonymous = hide reviewer from the subject
-//   pending items are awaiting the reviewer; completed carry rating + written feedback.
-const PEER_REVIEWS = [
-  // --- Abdul Palala is the reviewer (his "To Review") ---
-  { id: 301, subject: "Maria Santos", subjectInitials: "MS", reviewer: "Abdul Palala", reviewerInitials: "AP", requestedBy: "Andre Uy", status: "pending",   due: "2026-07-18", anonymous: false, rating: null, wentWell: "", toImprove: "" },
-  { id: 302, subject: "John Cruz",    subjectInitials: "JC", reviewer: "Abdul Palala", reviewerInitials: "AP", requestedBy: "Andre Uy", status: "pending",   due: "2026-07-22", anonymous: true,  rating: null, wentWell: "", toImprove: "" },
-  { id: 303, subject: "Lisa Tan",     subjectInitials: "LT", reviewer: "Abdul Palala", reviewerInitials: "AP", requestedBy: "Self",     status: "completed", due: "2026-07-05", anonymous: false, rating: 4, wentWell: "Sharp eye for edge cases; test plans are thorough.", toImprove: "Share test plans earlier in the sprint." },
-  // --- Abdul Palala is the subject (his "About Me") ---
-  { id: 304, subject: "Abdul Palala", subjectInitials: "AP", reviewer: "Maria Santos", reviewerInitials: "MS", requestedBy: "Andre Uy", status: "completed", due: "2026-06-28", anonymous: false, rating: 5, wentWell: "Reliable delivery and consistently strong code reviews.", toImprove: "Could document key decisions a bit more." },
-  { id: 305, subject: "Abdul Palala", subjectInitials: "AP", reviewer: "Grace Lim",    reviewerInitials: "GL", requestedBy: "Andre Uy", status: "completed", due: "2026-06-30", anonymous: true,  rating: 4, wentWell: "Very responsive in cross-team work.", toImprove: "Occasionally over-commits on scope." },
-  // --- Abdul requested a peer review of Maria (his "My Requests") ---
-  { id: 309, subject: "Maria Santos", subjectInitials: "MS", reviewer: "John Cruz",    reviewerInitials: "JC", requestedBy: "Abdul Palala", status: "pending", due: "2026-07-21", anonymous: false, rating: null, wentWell: "", toImprove: "" },
-  // --- Andre Uy is the reviewer (his "To Review") ---
-  { id: 306, subject: "Grace Lim",    subjectInitials: "GL", reviewer: "Andre Uy", reviewerInitials: "AU", requestedBy: "Self",     status: "pending",   due: "2026-07-19", anonymous: false, rating: null, wentWell: "", toImprove: "" },
-  { id: 307, subject: "Kevin Reyes",  subjectInitials: "KR", reviewer: "Andre Uy", reviewerInitials: "AU", requestedBy: "Andre Uy", status: "completed", due: "2026-07-01", anonymous: false, rating: 3, wentWell: "Solid, dependable individual contributions.", toImprove: "More proactive communication with the team." },
-  // --- Andre Uy is the subject (his "About Me") ---
-  { id: 308, subject: "Andre Uy",     subjectInitials: "AU", reviewer: "Maria Santos", reviewerInitials: "MS", requestedBy: "Self", status: "completed", due: "2026-06-25", anonymous: true, rating: 5, wentWell: "Clear direction and unblocks the team fast.", toImprove: "Delegate more of the smaller decisions." },
+// --- Projects & membership (mock "Central DB") -------------------------------
+// Peer review is project-driven: assignments are generated from who was on a
+// project during an evaluation cycle. Employees are NOT asked to pick members.
+const PROJECTS = [
+  { id: "p1", name: "Titan Platform", lead: "Andre Uy", active: true },
+  { id: "p2", name: "Apollo Mobile",  lead: "Andre Uy", active: true },
 ];
+
+// Project Membership History — the authoritative record. `to: null` = still a
+// member. Assignment generation reads THIS (not just current membership) so an
+// employee who transferred mid-cycle is reviewed within every project they were
+// part of during the cycle window. Dates are ISO (string compare is safe).
+//   Grace Lim joined Titan mid-cycle (recently joined — must NOT be excluded).
+//   John Cruz transferred Apollo → Titan mid-cycle (must appear in BOTH).
+//   Kevin Reyes is on Apollo but inactive in the directory (skipped when pairing).
+const PROJECT_MEMBERSHIP_HISTORY = [
+  { employee: "Abdul Palala", projectId: "p1", from: "2025-06-01", to: null },
+  { employee: "Maria Santos", projectId: "p1", from: "2025-06-01", to: null },
+  { employee: "Grace Lim",    projectId: "p1", from: "2026-01-15", to: null },
+  { employee: "John Cruz",    projectId: "p1", from: "2026-04-01", to: null },
+  { employee: "Lisa Tan",     projectId: "p2", from: "2025-06-01", to: null },
+  { employee: "John Cruz",    projectId: "p2", from: "2025-06-01", to: "2026-03-31" },
+  { employee: "Kevin Reyes",  projectId: "p2", from: "2025-06-01", to: null },
+];
+
+// Evaluation cycles run twice a year (June & December). `window` bounds which
+// project memberships count for that cycle; `due` is the review deadline.
+const EVAL_CYCLES = [
+  { id: "2026-h1", label: "June 2026",     period: "2026-1st", windowStart: "2026-01-01", windowEnd: "2026-06-30", due: "2026-07-31", open: true },
+  { id: "2025-h2", label: "December 2025", period: "2025-2nd", windowStart: "2025-07-01", windowEnd: "2025-12-31", due: "2026-01-31", open: false },
+];
+const CURRENT_CYCLE = "2026-h1";
+
+// Peer reviews (a.k.a. assignments). Generated automatically per cycle — see
+// peer-assignments.js, which seeds this array at load and tops it up on demand.
+//   reviewer = who writes it   subject = who is reviewed   projectId = source project
+//   cycleId  = evaluation cycle   pending: scores []   completed: rating + scores snapshot.
+//   The scores snapshot is kept per-review so editing PEER_REVIEW_TEMPLATE later
+//   never mutates reviews already submitted.
+const PEER_REVIEWS = [];
+
+// Active peer-review template — a single global set of rated criteria applied to
+// every peer review. Managed in Admin / OMS › Peer Review. Reviewers rate each
+// criterion 1–5 stars; the criterion labels are snapshotted onto a review when it
+// is submitted (see PEER_REVIEWS.scores).
+const PEER_REVIEW_TEMPLATE = {
+  name: "Standard Peer Evaluation",
+  criteria: [
+    { id: "c1", label: "Communication", description: "Shares information clearly, listens actively, and keeps others informed." },
+    { id: "c2", label: "Collaboration", description: "Works well with the team, offers help, and contributes to shared goals." },
+    { id: "c3", label: "Reliability", description: "Delivers on commitments on time and can be counted on." },
+    { id: "c4", label: "Quality of Work", description: "Produces accurate, thorough work that meets expectations." },
+    { id: "c5", label: "Initiative", description: "Takes ownership, anticipates needs, and acts without being asked." },
+  ],
+};
 
 // Manager review — AI-suggested comments waiting for accept/reject.
 const MANAGER_REVIEW = {
@@ -426,4 +461,5 @@ window.DB = {
   AI, DEPARTMENTS, TREND_6M, TREND_LABELS, DISTRIBUTION, KPI_TRENDS,
   RECEIVED_EVALUATIONS, TEAM_EVALUATIONS, SCHEDULED_EVALUATIONS, GOOGLE_CAL,
   PERIOD, PERIODS, LIMITS, MISSION_STATEMENTS, KPIS, TEAMS, OBJECTIVE_TEMPLATES,
+  PEER_REVIEW_TEMPLATE, PROJECTS, PROJECT_MEMBERSHIP_HISTORY, EVAL_CYCLES, CURRENT_CYCLE,
 };
