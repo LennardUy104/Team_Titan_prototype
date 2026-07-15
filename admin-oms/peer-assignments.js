@@ -54,7 +54,7 @@
           reviewer, reviewerInitials: rev.initials || "?",
           projectId: p.id, projectName: p.name,
           cycleId, status: "pending", due: cyc.due,
-          anonymous: false, rating: null, scores: [],
+          anonymous: true, rating: null, scores: [],
         });
         added++;
       }));
@@ -66,10 +66,11 @@
     DB.PEER_REVIEWS = DB.PEER_REVIEWS.filter((r) => r.id !== id);
   }
 
-  // Assignments for the projects a given leader leads.
-  function assignmentsForLeader(name) {
+  // Assignments for the projects a given leader leads, scoped to one cycle when
+  // cycleId is given (peer review repeats every 6 months — keep cycles separate).
+  function assignmentsForLeader(name, cycleId) {
     const mine = DB.PROJECTS.filter((p) => p.lead === name).map((p) => p.id);
-    return DB.PEER_REVIEWS.filter((r) => mine.includes(r.projectId));
+    return DB.PEER_REVIEWS.filter((r) => mine.includes(r.projectId) && (!cycleId || r.cycleId === cycleId));
   }
 
   function currentCycle() { return cycleById(DB.CURRENT_CYCLE); }

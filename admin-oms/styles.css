@@ -147,6 +147,8 @@ body {
 .sidebar .brand-name { font-size: var(--fs-label); line-height: 1.25; letter-spacing: 0; }
 
 .nav-section { font-size: var(--fs-eyebrow); font-weight: var(--fw-bold); text-transform: uppercase; letter-spacing: .06em; color: var(--faint); padding: 8px 12px 6px; }
+/* Leader-only separator between common nav and leadership tools. */
+.nav-divider { margin: 10px 12px; border-top: 1px solid var(--border); }
 .nav { display: flex; flex-direction: column; gap: 3px; }
 .nav-item {
   display: flex; align-items: center; gap: 11px;
@@ -323,6 +325,18 @@ input:focus, textarea:focus, select:focus { outline: none; border-color: var(--a
 .stars { display: inline-flex; gap: 3px; font-size: 20px; cursor: pointer; }
 .stars .star { color: #d7dae2; }
 .stars .star.on { color: #f5b301; }
+.stars-lg { font-size: 26px; }
+
+/* peer review modal (card grid + progress + overall note) */
+.peer-progress { display: flex; align-items: center; gap: 12px; margin: 0 0 16px; }
+.peer-progress-bar { flex: 1; height: 6px; border-radius: var(--r-pill); background: var(--track); overflow: hidden; }
+.peer-progress-bar span { display: block; height: 100%; width: 0; background: var(--green); border-radius: var(--r-pill); transition: width .18s ease; }
+.peer-progress-meta { display: inline-flex; align-items: center; gap: 8px; font-size: var(--fs-label); color: var(--muted); font-weight: var(--fw-medium); white-space: nowrap; }
+.peer-card { border: 1px solid var(--border); border-radius: var(--r-card); padding: 14px 16px; margin-bottom: 10px; background: var(--surface); }
+.peer-rate { display: flex; align-items: center; gap: 10px; margin-top: 10px; }
+.peer-desc { font-size: var(--fs-helper); font-weight: var(--fw-semibold); color: var(--green); }
+.btn:disabled { opacity: .5; cursor: not-allowed; }
+.btn.primary:disabled:hover { filter: none; }
 
 /* modal */
 .modal-overlay { position: fixed; inset: 0; background: rgba(20, 22, 40, .45); display: grid; place-items: center; z-index: 50; padding: 20px; }

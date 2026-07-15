@@ -271,11 +271,15 @@ const PROJECT_MEMBERSHIP_HISTORY = [
 
 // Evaluation cycles run twice a year (June & December). `window` bounds which
 // project memberships count for that cycle; `due` is the review deadline.
+// Newest first. The June/December cadence repeats every 6 months; each cycle's
+// assignments & feedback are scoped by cycleId. CURRENT_CYCLE is the open one.
 const EVAL_CYCLES = [
+  { id: "2026-h2", label: "December 2026", period: "2026-2nd", windowStart: "2026-07-01", windowEnd: "2026-12-31", due: "2027-01-31", open: false },
   { id: "2026-h1", label: "June 2026",     period: "2026-1st", windowStart: "2026-01-01", windowEnd: "2026-06-30", due: "2026-07-31", open: true },
   { id: "2025-h2", label: "December 2025", period: "2025-2nd", windowStart: "2025-07-01", windowEnd: "2025-12-31", due: "2026-01-31", open: false },
 ];
 const CURRENT_CYCLE = "2026-h1";
+const TODAY = "2026-07-15"; // prototype "now" — a pending review past its due date is overdue.
 
 // Peer reviews (a.k.a. assignments). Generated automatically per cycle — see
 // peer-assignments.js, which seeds this array at load and tops it up on demand.
@@ -408,36 +412,6 @@ const KPI_TRENDS = [
   { label: "Low-performance flags", value: "6",   delta: "-2",  up: true },
 ];
 
-// Received evaluations (read-only), keyed by subject name. Each has a history[]
-// of previous periods (newest-first). Employee + Leader both look theirs up.
-const RECEIVED_EVALUATIONS = {
-  "Abdul Palala": {
-    evaluator: "Andre Uy", evaluatorRole: "Engineering Leader",
-    period: "Q3 2026", finalScore: 88, status: "finalized", finalizedOn: "2026-07-02",
-    summary: "Overall performance is strong and trending upward this quarter.",
-    strengths: ["Reliable delivery", "High PR review activity", "Strong collaboration"],
-    improvements: ["Documentation coverage", "Unit test coverage"],
-    comments: "Consistently delivered on schedule with no overdue items. Focus next quarter on raising test coverage to 80%.",
-    history: [
-      { evaluator: "Andre Uy",   period: "Q2 2026", finalScore: 85, finalizedOn: "2026-04-04", summary: "Solid quarter; delivery reliable.", strengths: ["Reliable delivery", "Good code reviews"], improvements: ["Test coverage"], comments: "Keep up the delivery consistency." },
-      { evaluator: "Andre Uy",   period: "Q1 2026", finalScore: 82, finalizedOn: "2026-01-08", summary: "Steady growth this quarter.",     strengths: ["Collaboration"],                    improvements: ["Documentation", "Ownership"], comments: "Take more ownership of features end-to-end." },
-      { evaluator: "Priya Nair", period: "Q4 2025", finalScore: 79, finalizedOn: "2025-10-06", summary: "Meeting expectations.",            strengths: ["Willingness to learn"],             improvements: ["Delivery speed"], comments: "Focus on reducing task cycle time." },
-    ],
-  },
-  "Andre Uy": {
-    evaluator: "Diana Cruz", evaluatorRole: "VP Engineering",
-    period: "Q3 2026", finalScore: 91, status: "finalized", finalizedOn: "2026-07-03",
-    summary: "Strong leadership; team delivery and morale trending up.",
-    strengths: ["Team throughput +6%", "Clear objective setting", "Low attrition"],
-    improvements: ["Cross-team visibility", "Succession planning"],
-    comments: "Excellent quarter leading Engineering. Grow bench strength via a formal mentoring track.",
-    history: [
-      { evaluator: "Diana Cruz", period: "Q2 2026", finalScore: 89, finalizedOn: "2026-04-05", summary: "Consistent leadership.",   strengths: ["Delivery predictability"], improvements: ["Cross-team visibility"], comments: "Increase visibility into roadmap tradeoffs." },
-      { evaluator: "Diana Cruz", period: "Q1 2026", finalScore: 87, finalizedOn: "2026-01-09", summary: "Strong start to the year.", strengths: ["Team morale"],              improvements: ["Hiring pace"],           comments: "Accelerate backfill for open reqs." },
-    ],
-  },
-};
-
 // Subjects a Leader can evaluate (team + peer leaders). status drives the badge.
 const TEAM_EVALUATIONS = [
   { name: "Abdul Palala", initials: "AP", role: "Software Engineer", status: "in-progress", score: null },
@@ -468,8 +442,8 @@ const CONNECTORS = [
 window.DB = {
   AVATAR_COLORS, CURRENT_USER, EMPLOYEES, OBJECTIVES, PEER_REVIEWS, MANAGER_REVIEW,
   AI, DEPARTMENTS, TREND_6M, TREND_LABELS, DISTRIBUTION, KPI_TRENDS,
-  RECEIVED_EVALUATIONS, TEAM_EVALUATIONS, SCHEDULED_EVALUATIONS, GOOGLE_CAL,
+  TEAM_EVALUATIONS, SCHEDULED_EVALUATIONS, GOOGLE_CAL,
   PERIOD, PERIODS, LIMITS, MISSION_STATEMENTS, KPIS, TEAMS, OBJECTIVE_TEMPLATES,
-  PEER_REVIEW_TEMPLATE, PROJECTS, PROJECT_MEMBERSHIP_HISTORY, EVAL_CYCLES, CURRENT_CYCLE,
+  PEER_REVIEW_TEMPLATE, PROJECTS, PROJECT_MEMBERSHIP_HISTORY, EVAL_CYCLES, CURRENT_CYCLE, TODAY,
   CONNECTORS,
 };
