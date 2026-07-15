@@ -1,6 +1,7 @@
-/* Titan prototype — Feedback module. Role-aware, split into two top-level views:
-   My Feedback (received)              — both roles.
-   Feedback (give feedback to team)    — leader only (nav-gated in app.js). */
+/* Titan prototype — Feedback module.
+   Feedback (give feedback to team) — leader only (nav-gated in app.js).
+   The former "My Feedback" (received) view was removed — My Objectives already
+   shows each objective's manager % and comment, so it was redundant. */
 window.Views = window.Views || {};
 window.ViewsWire = window.ViewsWire || {};
 
@@ -8,47 +9,11 @@ window.ViewsWire = window.ViewsWire || {};
 // insightsShown: AI Insights are generated on demand, per selected member (not automatic).
 const ReviewState = { subjectIdx: 0, insightsShown: false };
 
-// "My Feedback" — feedback the signed-in user has received.
-window.Views["my-feedback"] = function (role) {
-  return receivedView(role);
-};
-
 // "Feedback" — leader gives / finalizes feedback for their team.
 // Wrapped in a fresh #feedback-body each render so delegated listeners don't stack.
 window.Views["feedback"] = function () {
   return `<div id="feedback-body">${teamView()}</div>`;
 };
-
-/* ---------- My Feedback (received) — per-objective manager evaluations, by half-year ---------- */
-// Which half-year the "My Feedback" view is showing (its own selector).
-const ReceivedState = { period: DB.PERIOD };
-
-function receivedView(role) {
-  const me = DB.CURRENT_USER[role].name;
-  const period = ReceivedState.period;
-  const mine = DB.OBJECTIVES.filter((o) => o.owner === me && o.period === period);
-
-  const cards = mine.map((o) => {
-    const done = o.managerPercent != null;
-    return `<div class="card" style="margin-bottom:12px">
-      <div class="spread" style="align-items:flex-start">
-        <div>
-          <strong>${UI.esc(o.title)}</strong> <span class="tag">${o.category === "organization" ? "Org" : "Personal"}</span>
-          <div class="small muted" style="margin-top:4px">Self ${o.selfPercent != null ? o.selfPercent + "%" : "—"}${done ? ` · Manager ${o.managerPercent}%` : ""}</div>
-        </div>
-        <span class="badge ${done ? "green" : "gray"}">${done ? "Evaluated" : "Pending"}</span>
-      </div>
-      ${done
-        ? `<div class="divider"></div><strong>Manager feedback</strong><p class="muted" style="margin:6px 0 0">${UI.esc(o.managerComment) || "No comment."}</p>`
-        : `<div class="empty" style="margin-top:8px">Awaiting your leader's evaluation.</div>`}
-    </div>`;
-  }).join("") || `<div class="empty">No objectives for ${UI.esc(period)}.</div>`;
-
-  return `
-    ${UI.periodSelect(period, { id: "rcv" })}
-    <div class="section-head"><div><h2 class="mb-0">My Feedback</h2><div class="small muted">Manager evaluations per objective · ${UI.esc(period)}</div></div></div>
-    ${cards}`;
-}
 
 /* ---------- Giving feedback: roster status + AI insights + per-objective evaluation ---------- */
 // Roster badge derived from how many of the member's objectives are manager-evaluated.
@@ -209,20 +174,6 @@ function renderInsights(subject) {
 }
 
 /* ---------- Wiring ---------- */
-// "My Feedback" (received) — half-year selector (dropdown + stepper), read-only history.
-window.ViewsWire["my-feedback"] = function () {
-  const sel = document.getElementById("rcv-select");
-  if (sel) sel.addEventListener("change", () => { ReceivedState.period = sel.value; rerender(); });
-  const stepTo = (delta) => {
-    const i = DB.PERIODS.indexOf(ReceivedState.period) + delta;
-    if (i >= 0 && i < DB.PERIODS.length) { ReceivedState.period = DB.PERIODS[i]; rerender(); }
-  };
-  const prev = document.getElementById("rcv-prev");
-  if (prev) prev.addEventListener("click", () => stepTo(1));
-  const next = document.getElementById("rcv-next");
-  if (next) next.addEventListener("click", () => stepTo(-1));
-};
-
 // "Feedback" (giving) — leader only.
 window.ViewsWire["feedback"] = function () {
   wireTeam();
@@ -309,7 +260,7 @@ function openCreateOrg(subject) {
   });
 }
 
-// Re-render whichever feedback view is active (my-feedback | feedback).
+// Re-render the active feedback view (leader "feedback").
 function rerender() {
   const role = window.App.role;
   const view = window.App.view;

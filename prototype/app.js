@@ -5,7 +5,7 @@ const App = {
   role: (function () {
     try { return localStorage.getItem("titan-role") || "employee"; } catch (e) { return "employee"; }
   })(),
-  view: "analytics",    // analytics | objectives | ai | my-feedback | feedback
+  view: "analytics",    // analytics | objectives | ai | feedback
 };
 
 /* ---------- Shared UI helpers (used by every view module) ---------- */
@@ -273,7 +273,6 @@ const VIEW_TITLES = {
   analytics: "Analytics",
   objectives: "My Objectives",
   ai: "AI Assistant",
-  "my-feedback": "My Feedback",
   peer: "Peer Review",
   reports: "Reports",
   feedback: "Feedback",
@@ -281,15 +280,18 @@ const VIEW_TITLES = {
 };
 
 function render() {
-  // Evidence is no longer a standalone page — it lives on each objective now.
-  if (App.view === "evidence") App.view = "objectives";
-  // Leader-only views: hide their nav items and bounce employees off them.
+  // Evidence lives on each objective now; My Feedback was folded into My Objectives.
+  if (App.view === "evidence" || App.view === "my-feedback") App.view = "objectives";
+  // Leader-only views: hide their nav items (+ the leader-only divider) and
+  // bounce employees off them.
   ["feedback", "admin"].forEach((v) => {
     const nav = document.querySelector(`.nav-item[data-view="${v}"]`);
     if (nav) nav.style.display = App.role === "leader" ? "" : "none";
   });
-  if (App.role !== "leader" && App.view === "feedback") App.view = "my-feedback";
-  if (App.role !== "leader" && App.view === "admin") App.view = "analytics";
+  document.querySelectorAll("[data-leader-only]").forEach((el) => {
+    el.style.display = App.role === "leader" ? "" : "none";
+  });
+  if (App.role !== "leader" && (App.view === "feedback" || App.view === "admin")) App.view = "objectives";
 
   document.getElementById("topbar-title").textContent = VIEW_TITLES[App.view];
 
