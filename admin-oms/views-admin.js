@@ -9,6 +9,7 @@ const OMS_TABS = [
   { id: "users", label: "Users" },
   { id: "templates", label: "Templates" },
   { id: "peer", label: "Peer Review" },
+  { id: "connectors", label: "Connectors" },
 ];
 
 function omsTabs() {
@@ -101,7 +102,8 @@ function peerReviewTab() {
 
 window.Views.admin = function () {
   const body = AdminState.tab === "templates" ? templatesTab()
-    : AdminState.tab === "peer" ? peerReviewTab() : usersTab();
+    : AdminState.tab === "peer" ? peerReviewTab()
+    : AdminState.tab === "connectors" ? window.AdminConnectors.render() : usersTab();
   return `${omsTabs()}${body}`;
 };
 
@@ -120,6 +122,8 @@ window.ViewsWire.admin = function () {
       b.addEventListener("click", () => openCriterion(b.dataset.critEdit)));
     document.querySelectorAll("[data-crit-del]").forEach((b) =>
       b.addEventListener("click", () => deleteCriterion(b.dataset.critDel)));
+  } else if (AdminState.tab === "connectors") {
+    window.AdminConnectors.wire(rerenderAdmin);
   } else {
     const nt = document.getElementById("tpl-new");
     if (nt) nt.addEventListener("click", openTemplateBuilder);

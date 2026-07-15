@@ -456,10 +456,20 @@ const SCHEDULED_EVALUATIONS = [
 // Mocked Google Calendar connection state (no real OAuth in the prototype).
 const GOOGLE_CAL = { connected: false, account: "andre.uy@company.com" };
 
+// MCP connectors — third-party apps OMS links to (via Model Context Protocol)
+// to auto-pull evidence & activity. Managed in Admin / OMS › Connectors. These
+// are the same sources objective evidence is auto-collected from. All in-memory.
+const CONNECTORS = [
+  { id: "github",  name: "GitHub",  category: "Code",    status: "connected", mcpUrl: "mcp://github.mcp.oms.local",  token: "ghp_****************", tools: ["pull_requests", "commits", "reviews"], lastSync: "just now" },
+  { id: "backlog", name: "Backlog", category: "Project", status: "connected", mcpUrl: "mcp://backlog.mcp.oms.local", token: "bl_*****************", tools: ["issues", "tasks", "milestones"], lastSync: "2h ago" },
+  { id: "slack",   name: "Slack",   category: "Comms",   status: "connected", mcpUrl: "mcp://slack.mcp.oms.local",   token: "xoxb-************",    tools: ["messages", "channels", "mentions"], lastSync: "15m ago" },
+];
+
 window.DB = {
   AVATAR_COLORS, CURRENT_USER, EMPLOYEES, OBJECTIVES, PEER_REVIEWS, MANAGER_REVIEW,
   AI, DEPARTMENTS, TREND_6M, TREND_LABELS, DISTRIBUTION, KPI_TRENDS,
   RECEIVED_EVALUATIONS, TEAM_EVALUATIONS, SCHEDULED_EVALUATIONS, GOOGLE_CAL,
   PERIOD, PERIODS, LIMITS, MISSION_STATEMENTS, KPIS, TEAMS, OBJECTIVE_TEMPLATES,
   PEER_REVIEW_TEMPLATE, PROJECTS, PROJECT_MEMBERSHIP_HISTORY, EVAL_CYCLES, CURRENT_CYCLE,
+  CONNECTORS,
 };
