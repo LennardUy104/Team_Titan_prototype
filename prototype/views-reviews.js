@@ -6,13 +6,30 @@ window.Views = window.Views || {};
 window.ViewsWire = window.ViewsWire || {};
 
 // Local UI state for the giving-feedback view (resets on reload — fine for a prototype).
-// insightsShown: AI Insights are generated on demand, per selected member (not automatic).
-const ReviewState = { subjectIdx: 0, insightsShown: false };
+//   subjectName  : the employee currently in focus (defaults to the first assigned)
+//   insightsShown: AI Insights are generated on demand, per member (not automatic)
+//   evaluating   : whether "Start Evaluation" has revealed the editable eval
+const ReviewState = { subjectName: null, insightsShown: false, evaluating: false };
 
-// "Feedback" — leader gives / finalizes feedback for their team.
+// Employees assigned to the current leader for evaluation — driven by Admin ▸ Users
+// → Assign Evaluator (u.evaluators). Excludes the leader themselves.
+function assignedList() {
+  const me = DB.CURRENT_USER[window.App.role].name;
+  return DB.EMPLOYEES.filter((u) => u.name !== me && (u.evaluators || []).includes(me));
+}
+// The employee in focus; defaults to the first assigned employee.
+function currentSubject() {
+  const list = assignedList();
+  if (!list.length) return null;
+  let s = list.find((u) => u.name === ReviewState.subjectName);
+  if (!s) { s = list[0]; ReviewState.subjectName = s.name; }
+  return s;
+}
+
+// "Feedback" — leader evaluates the employees assigned to them.
 // Wrapped in a fresh #feedback-body each render so delegated listeners don't stack.
 window.Views["feedback"] = function () {
-  return `<div id="feedback-body">${teamView()}</div>`;
+  return `<div id="feedback-body">${feedbackView()}</div>`;
 };
 
 /* ---------- Giving feedback: roster status + AI insights + per-objective evaluation ---------- */
@@ -47,6 +64,8 @@ function memberEvalCard(subject) {
   const org = objs.filter((o) => o.category === "organization");
   const personal = objs.filter((o) => o.category === "personal");
   const orgFull = org.length >= DB.LIMITS.organization;
+  const evald = objs.filter((o) => o.managerPercent != null).length;
+  const allDone = objs.length > 0 && evald === objs.length;
 
   const row = (o) => {
     const done = o.managerPercent != null;
@@ -56,7 +75,7 @@ function memberEvalCard(subject) {
           <strong>${UI.esc(o.title)}</strong> <span class="tag">${o.category === "organization" ? "Org" : "Personal"}</span>
           <div class="small muted" style="margin-top:4px">Self: ${o.selfPercent != null ? o.selfPercent + "%" : "—"} · ${UI.esc(o.selfReport) || "no self report"}</div>
         </div>
-        <button class="btn sm ghost" data-obj="${o.id}">Details</button>
+        <button class="btn sm" data-obj="${o.id}">📎 Evidence &amp; Measurement</button>
       </div>
       <div style="margin-top:8px">
         <label class="small muted">Manager evaluation · score each key result</label>
@@ -72,37 +91,103 @@ function memberEvalCard(subject) {
 
   const list = objs.length ? objs.map(row).join("") : `<div class="empty">No objectives for ${UI.esc(subject.name)} yet.</div>`;
   return `<div class="card">
-    <div class="card-title">Objectives — ${UI.esc(subject.name)} <span class="hint">${UI.esc(DB.PERIOD)}</span>
-      <button class="btn sm" id="add-org" ${orgFull ? "disabled title='Maximum reached'" : ""}>+ Organization Objective</button>
+    <div class="eval-head">
+      <div class="eval-id">
+        ${UI.avatar(subject.initials)}
+        <div>
+          <div class="eval-eyebrow">Evaluating</div>
+          <div class="eval-name">${UI.esc(subject.name)}</div>
+          <div class="eval-role">${UI.esc(subject.role || "")}</div>
+        </div>
+      </div>
+      <div class="row" style="gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end">
+        <span class="badge ${allDone ? "green" : "amber"}">${evald}/${objs.length} evaluated</span>
+        <button class="btn sm" id="add-org" ${orgFull ? "disabled title='Maximum reached'" : ""}>+ Organization Objective</button>
+        <button class="btn sm" id="eval-done">✓ Done</button>
+      </div>
     </div>
-    <div class="small muted" style="margin-bottom:6px">Organization ${org.length}/${DB.LIMITS.organization} · Personal ${personal.length}/${DB.LIMITS.personal}. Enter your evaluation per objective.</div>
+    <div class="small muted" style="margin:12px 0 6px">Organization ${org.length}/${DB.LIMITS.organization} · Personal ${personal.length}/${DB.LIMITS.personal}. Enter your evaluation per objective.</div>
     ${list}
   </div>`;
 }
 
-function teamView() {
-  const list = DB.TEAM_EVALUATIONS;
-  const subject = list[ReviewState.subjectIdx];
-  const rows = list.map((m, i) => {
-    const sel = i === ReviewState.subjectIdx ? ' style="background:var(--surface-2)"' : "";
-    const tag = m.peerLeader ? ' <span class="tag">Leader</span>' : "";
-    return `<div class="row-item clickable" data-subj="${i}"${sel}>
-      <span>${UI.who(m.name, m.initials, m.role)}${tag}</span>
-      <span class="row" style="gap:10px">${statusBadgeFor(m)}<button class="btn sm" data-subj-btn="${i}">Give Feedback</button></span>
-    </div>`;
-  }).join("") || `<div class="empty">No team members to give feedback to.</div>`;
+function feedbackView() {
+  const list = assignedList();
+  const subject = currentSubject();
+  const header = `<div class="section-head">
+    <div><h2 class="mb-0">Feedback</h2><div class="small muted">Evaluate the employees assigned to you · ${UI.esc(DB.PERIOD)}</div></div>
+    <button class="btn primary" id="open-members">👥 Assigned Employees (${list.length})</button>
+  </div>`;
 
-  // Right column: AI insights (context) above the per-objective manager evaluation.
-  const right = subject
-    ? `<div class="stack">${aiInsightsCard(subject)}${memberEvalCard(subject)}</div>`
-    : `<div class="card"><div class="empty">Select a team member to give feedback.</div></div>`;
+  if (!subject) {
+    return `${header}
+      <div class="card"><div class="empty">No employees are assigned to you yet.<div class="small muted" style="margin-top:6px">An admin assigns evaluators in Admin ▸ Users → Assign Evaluator.</div></div></div>`;
+  }
 
-  return `
-    <div class="grid grid-2">
-      <div class="card"><div class="card-title">Your Team</div>${rows}</div>
-      ${right}
+  const tag = subject.obsRole === "leader" ? ' <span class="tag">Leader</span>' : "";
+  const selectedCard = `<div class="card">
+    <div class="spread" style="align-items:center">
+      <div>${UI.who(subject.name, subject.initials, subject.role)}${tag}</div>
+      <div class="row" style="gap:10px;align-items:center">${statusBadgeFor(subject)}<button class="btn sm" id="open-members-2">Switch employee</button></div>
     </div>
+  </div>`;
+
+  // Evaluation is gated behind "Start Evaluation" (revealed inline on the page).
+  const evalBlock = ReviewState.evaluating ? memberEvalCard(subject) : evalStartCard(subject);
+
+  return `${header}
+    ${selectedCard}
+    <div class="stack" style="margin-top:16px">${aiInsightsCard(subject)}${evalBlock}</div>
     ${scheduleCard()}`;
+}
+
+// Read-only objective summary + a button to reveal the editable evaluation.
+// Design: plans/designs/leader-feedback-evaluation-card.md (Mika).
+function evalStartCard(subject) {
+  const objs = DB.OBJECTIVES.filter((o) => o.owner === subject.name && o.period === DB.PERIOD);
+  const total = objs.length;
+  const evald = objs.filter((o) => o.managerPercent != null).length;
+  const allDone = total > 0 && evald === total;
+  const pct = total ? Math.round((evald / total) * 100) : 0;
+
+  const rows = total
+    ? objs.map((o) => {
+        const done = o.managerPercent != null;
+        const badge = done
+          ? `<span class="badge green">Evaluated · ${o.managerPercent}%</span>`
+          : `<span class="badge amber">Not evaluated</span>`;
+        return `<div class="eval-row ${done ? "done" : ""}">
+          <span class="eval-rail"></span>
+          <div class="eval-row-main">
+            <span class="eval-row-title">${UI.esc(o.title)}</span> <span class="tag">${o.category === "organization" ? "Org" : "Personal"}</span>
+            <div class="eval-row-meta">Self-assessed ${o.selfPercent != null ? o.selfPercent + "%" : "—"}</div>
+          </div>
+          ${badge}
+        </div>`;
+      }).join("")
+    : `<div class="empty">No objectives for ${UI.esc(subject.name)} yet.</div>`;
+
+  const bar = total ? `<div class="eval-bar">${UI.progress(pct, allDone ? "completed" : "at-risk")}</div>` : "";
+
+  return `<div class="card">
+    <div class="eval-head">
+      <div class="eval-id">
+        ${UI.avatar(subject.initials)}
+        <div>
+          <div class="eval-eyebrow">Evaluation</div>
+          <div class="eval-name">${UI.esc(subject.name)}</div>
+          <div class="eval-role">${UI.esc(subject.role || "")}</div>
+        </div>
+      </div>
+      <span class="badge ${allDone ? "green" : "amber"}">${evald}/${total} evaluated</span>
+    </div>
+    ${bar}
+    <div class="eval-list">${rows}</div>
+    <div class="eval-foot">
+      <button class="btn primary" id="start-eval">✎ Start Evaluation</button>
+      <span class="hint">Score each objective's key results, then finalize.</span>
+    </div>
+  </div>`;
 }
 
 /* ---------- Schedule evaluations (calendar + Google Calendar link) ---------- */
@@ -112,7 +197,7 @@ function scheduleCard() {
     ? `<span class="badge green">Google · ${UI.esc(g.account)}</span> <button class="btn sm" id="gcal-toggle">Disconnect</button>`
     : `<button class="btn sm" id="gcal-toggle">Connect Google Calendar</button>`;
 
-  const subjectOpts = DB.TEAM_EVALUATIONS.map((m) => `<option value="${UI.esc(m.name)}">${UI.esc(m.name)}</option>`).join("");
+  const subjectOpts = assignedList().map((m) => `<option value="${UI.esc(m.name)}">${UI.esc(m.name)}</option>`).join("");
 
   const rows = DB.SCHEDULED_EVALUATIONS.length
     ? DB.SCHEDULED_EVALUATIONS.map((s) => `
@@ -144,7 +229,7 @@ function scheduleEval() {
   const time = document.getElementById("sched-time").value;
   const notes = document.getElementById("sched-notes").value || "Q3 performance feedback";
   if (!subject || !date || !time) { toast("Pick a team member, date, and time."); return; }
-  const m = DB.TEAM_EVALUATIONS.find((x) => x.name === subject);
+  const m = assignedList().find((x) => x.name === subject);
   DB.SCHEDULED_EVALUATIONS.push({
     id: Date.now(), subject,
     subjectInitials: m ? m.initials : subject.slice(0, 2).toUpperCase(),
@@ -176,17 +261,21 @@ function renderInsights(subject) {
 /* ---------- Wiring ---------- */
 // "Feedback" (giving) — leader only.
 window.ViewsWire["feedback"] = function () {
-  wireTeam();
+  wireFeedback();
 };
 
-function wireTeam() {
-  // Select a subject (row or Give Feedback button)
-  document.querySelectorAll("[data-subj], [data-subj-btn]").forEach((el) =>
-    el.addEventListener("click", () => {
-      const raw = el.dataset.subj != null ? el.dataset.subj : el.dataset.subjBtn;
-      const idx = Number(raw);
-      if (!Number.isNaN(idx)) selectSubject(idx);
-    }));
+function wireFeedback() {
+  // Open the Slack-style assigned-employees panel (header button + "Switch employee").
+  ["open-members", "open-members-2"].forEach((id) => {
+    const b = document.getElementById(id);
+    if (b) b.addEventListener("click", openMembersPanel);
+  });
+
+  // Start / finish the inline evaluation (revealed on the page, not a modal).
+  const start = document.getElementById("start-eval");
+  if (start) start.addEventListener("click", () => { ReviewState.evaluating = true; rerender(); });
+  const evalDone = document.getElementById("eval-done");
+  if (evalDone) evalDone.addEventListener("click", () => { ReviewState.evaluating = false; rerender(); });
 
   // Delegated clicks on the per-render wrapper: open an objective's detail modal.
   document.getElementById("feedback-body").addEventListener("click", (e) => {
@@ -213,7 +302,7 @@ function wireTeam() {
 
   // Add an organization objective for the selected member (respecting the cap).
   const addOrg = document.getElementById("add-org");
-  if (addOrg) addOrg.addEventListener("click", () => openCreateOrg(DB.TEAM_EVALUATIONS[ReviewState.subjectIdx]));
+  if (addOrg) addOrg.addEventListener("click", () => { const s = currentSubject(); if (s) openCreateOrg(s); });
 
   // Schedule card: Google connect toggle, add, remove
   const gcal = document.getElementById("gcal-toggle");
@@ -230,9 +319,36 @@ function wireTeam() {
     }));
 }
 
-function selectSubject(idx) {
-  ReviewState.subjectIdx = idx;
+// Slack-style panel listing the leader's assigned employees; pick one to focus.
+// Live search re-renders only the list (keeps the search box focused).
+function openMembersPanel() {
+  const render = (q) => {
+    const needle = (q || "").trim().toLowerCase();
+    return assignedList()
+      .filter((u) => !needle || u.name.toLowerCase().includes(needle) || (u.role || "").toLowerCase().includes(needle))
+      .map((u) => {
+        const tag = u.obsRole === "leader" ? ' <span class="tag">Leader</span>' : "";
+        return `<div class="row-item clickable" data-mem="${UI.esc(u.name)}"><span>${UI.who(u.name, u.initials, u.role)}${tag}</span>${statusBadgeFor(u)}</div>`;
+      }).join("") || `<div class="empty">No employees match.</div>`;
+  };
+  const list = assignedList();
+  Modal.open(`
+    <div class="modal-head"><div><h3>Assigned Employees</h3><div class="small muted" style="margin-top:4px">${list.length} assigned to you</div></div><button class="close" data-close>×</button></div>
+    <input type="search" id="mem-search" placeholder="Find members…" style="width:100%;margin-bottom:8px" />
+    <div class="mem-list" id="mem-list">${render("")}</div>`);
+  const search = document.getElementById("mem-search");
+  const listEl = document.getElementById("mem-list");
+  const bindRows = () => listEl.querySelectorAll("[data-mem]").forEach((el) =>
+    el.addEventListener("click", () => { selectSubject(el.dataset.mem); Modal.close(); }));
+  bindRows();
+  search.addEventListener("input", () => { listEl.innerHTML = render(search.value); bindRows(); });
+  search.focus();
+}
+
+function selectSubject(name) {
+  ReviewState.subjectName = name;
   ReviewState.insightsShown = false; // fresh member → leader regenerates insights explicitly
+  ReviewState.evaluating = false;    // each member starts read-only until "Start Evaluation"
   rerender();
 }
 
