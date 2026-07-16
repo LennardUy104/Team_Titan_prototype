@@ -136,15 +136,16 @@ body {
   padding: 18px 14px;
   position: sticky; top: 0; height: 100vh;
 }
-.brand { display: flex; align-items: center; gap: 10px; padding: 6px 8px 20px; }
+.brand { display: flex; align-items: center; justify-content: center; gap: 12px; padding: 16px 8px 18px; }
 .brand-mark { color: var(--green-deep); font-size: 20px; }
-/* Bee logo mark — inherits brand-mark color via currentColor, so it themes. */
+/* Login lockup uses .brand-mark (see .auth-logo); the sidebar uses .brand-mark-img. */
 .brand-mark svg { width: 22px; height: 22px; display: block; }
-.brand-name { font-weight: var(--fw-bold); font-size: var(--fs-section); letter-spacing: var(--ls-tight); }
-/* Full product name is long — keep the sidebar lockup compact and let it wrap cleanly. */
-.sidebar .brand { align-items: flex-start; }
-.sidebar .brand-mark { line-height: 1.25; }
-.sidebar .brand-name { font-size: var(--fs-label); line-height: 1.25; letter-spacing: 0; }
+.brand-mark img { width: 26px; height: 26px; display: block; border-radius: 6px; object-fit: contain; }
+/* Sidebar brand lockup — prominent mark + compact wordmark. */
+.brand-mark-img { width: 40px; height: 40px; object-fit: contain; flex-shrink: 0; }
+.brand-text { display: flex; flex-direction: column; line-height: 1.15; }
+.brand-word { font-weight: var(--fw-bold); font-size: var(--fs-section); letter-spacing: var(--ls-tight); color: var(--text); }
+.brand-sub { font-size: var(--fs-chip); color: var(--muted); }
 
 .nav-section { font-size: var(--fs-eyebrow); font-weight: var(--fw-bold); text-transform: uppercase; letter-spacing: .06em; color: var(--faint); padding: 8px 12px 6px; }
 /* Leader-only separator between common nav and leadership tools. */
@@ -284,6 +285,48 @@ body {
 /* pills / chips */
 .tag { display: inline-block; padding: 3px 9px; border-radius: var(--r-pill); font-size: var(--fs-chip); font-weight: var(--fw-semibold); background: var(--surface-2); border: 1px solid var(--border); color: var(--muted); }
 
+/* filter popover (peer Assignments) */
+.filter-bar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 14px; }
+.filter-wrap { position: relative; margin-left: auto; }
+.filter-panel { position: absolute; top: calc(100% + 8px); right: 0; width: 300px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-card); box-shadow: var(--shadow-lg); padding: 16px; z-index: 20; }
+.filter-panel .filter-field { margin-bottom: 12px; }
+.filter-panel label { display: block; font-size: var(--fs-label); font-weight: var(--fw-semibold); color: var(--muted); margin-bottom: 5px; }
+.filter-panel select { width: 100%; }
+.filter-actions { display: flex; gap: 8px; justify-content: space-between; margin-top: 16px; }
+.filter-chips { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.filter-chip { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: var(--r-pill); background: var(--surface-2); border: 1px solid var(--border); font-size: var(--fs-chip); font-weight: var(--fw-semibold); color: var(--muted); }
+.filter-chip button { border: none; background: none; cursor: pointer; color: var(--muted); font-size: 14px; line-height: 1; padding: 0; }
+.filter-chip button:hover { color: var(--red); }
+
+/* objective-form Focus Area — multi-select dropdown with chips */
+.of-select { position: relative; }
+.of-select-control { display: flex; align-items: center; gap: 8px; min-height: 42px; padding: 6px 10px; border: 1px solid var(--border); border-radius: var(--r-btn); background: var(--surface); cursor: pointer; }
+.of-select-control:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.of-select-chips { display: flex; flex-wrap: wrap; gap: 6px; flex: 1; }
+.of-ph { font-size: var(--fs-label); }
+.of-caret { color: var(--muted); font-size: 12px; flex-shrink: 0; }
+.of-select-menu { position: absolute; top: calc(100% + 4px); left: 0; right: 0; max-height: 200px; overflow: auto; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-btn); box-shadow: var(--shadow-lg); z-index: 30; padding: 4px; }
+.of-opt { padding: 9px 11px; border-radius: var(--r-btn); font-size: var(--fs-label); font-weight: var(--fw-semibold); cursor: pointer; display: flex; justify-content: space-between; align-items: center; }
+.of-opt:hover { background: var(--surface-2); }
+.of-opt.sel { background: var(--accent-soft); color: var(--accent); }
+.of-opt.sel::after { content: "✓"; }
+.of-chip { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: var(--r-pill); border: 1px solid var(--border); background: var(--surface-2); color: var(--text); font-size: var(--fs-chip); font-weight: var(--fw-semibold); }
+.of-chip-x { border: none; background: none; cursor: pointer; color: var(--muted); font-size: 13px; line-height: 1; padding: 0; }
+.of-chip-x:hover { color: var(--red); }
+.of-check { display: flex; align-items: center; gap: 8px; font-size: var(--fs-label); cursor: pointer; margin-top: 4px; }
+.of-check input { width: auto; }
+
+/* Proof of Output (employee-submitted) */
+.proof-list { display: flex; flex-direction: column; gap: 8px; }
+.proof-item { display: flex; align-items: center; gap: 8px; padding: 7px 10px; border: 1px solid var(--border); border-radius: var(--r-btn); background: var(--surface-2); font-size: var(--fs-label); }
+.proof-ico { flex-shrink: 0; }
+.proof-link { color: var(--accent); text-decoration: none; word-break: break-all; }
+.proof-link:hover { text-decoration: underline; }
+.proof-name { flex: 1; color: var(--text); word-break: break-word; }
+.proof-thumb { width: 40px; height: 40px; object-fit: cover; border-radius: var(--r-btn); border: 1px solid var(--border); flex-shrink: 0; }
+.proof-thumb.lg { width: 120px; height: 120px; }
+.proof-x { flex-shrink: 0; margin-left: auto; }
+
 /* checklist */
 .check-list { list-style: none; padding: 0; margin: 0; }
 .check-list li { display: flex; gap: 9px; align-items: flex-start; padding: 6px 0; font-size: var(--fs-body); line-height: var(--lh-body); }
@@ -403,6 +446,7 @@ input:focus, textarea:focus, select:focus { outline: none; border-color: var(--a
 .auth-card { position: relative; z-index: 1; width: 100%; max-width: 460px; text-align: center; }
 .auth-logo .brand-mark { font-size: 46px; color: var(--accent); }
 .auth-logo .brand-mark svg { width: 46px; height: 46px; }
+.auth-logo .brand-mark img { width: 104px; height: 104px; border-radius: 20px; object-fit: contain; margin: 0 auto; }
 .auth-appname { margin-top: 12px; font-size: var(--fs-label); font-weight: var(--fw-semibold); color: var(--muted); }
 .auth-title { margin: 20px 0 0; font-size: var(--fs-page-title); font-weight: var(--fw-bold); letter-spacing: var(--ls-tight); line-height: var(--lh-heading); color: var(--text); }
 .auth-divider { display: flex; align-items: center; gap: 12px; margin: 24px 0; color: var(--faint); font-size: var(--fs-helper); }

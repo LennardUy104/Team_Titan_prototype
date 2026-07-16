@@ -1,6 +1,7 @@
 /* Titan prototype — Admin / Organization Management System (OMS). Leader-only.
-   Users: central-DB-backed (identity read-only; OMS manages role/dept/status).
-   Templates + Peer Review criteria are managed here. */
+   Users: central-DB-backed. Identity, role, dept and status are owned by the
+   Central DB (read-only here, managed in a different app). OMS only assigns each
+   user's evaluator(s). Templates + Peer Review criteria are managed here too. */
 window.Views = window.Views || {};
 window.ViewsWire = window.ViewsWire || {};
 
@@ -18,23 +19,26 @@ function omsTabs() {
   return `<div class="role-switch" id="oms-tabs" style="margin-bottom:18px">${tabs}</div>`;
 }
 
-// Shared <option> builder (used by Manage User → department select).
-function deptOptions(sel) {
-  return DB.DEPARTMENTS.filter((d) => d.active).map((d) => `<option value="${UI.esc(d.name)}" ${d.name === sel ? "selected" : ""}>${UI.esc(d.name)}</option>`).join("");
-}
 function nextId(arr) { return arr.reduce((m, x) => Math.max(m, x.id), 0) + 1; }
 function statusBadge(active) { return active ? `<span class="badge green">Active</span>` : `<span class="badge gray">Inactive</span>`; }
 
-/* ---------- Users (central-DB-backed) ---------- */
+// Evaluator column: an employee/leader can have one OR MORE evaluators.
+function evaluatorCell(u) {
+  return (u.evaluators && u.evaluators.length)
+    ? u.evaluators.map((n) => `<span class="tag">${UI.esc(n)}</span>`).join(" ")
+    : `<span class="muted">—</span>`;
+}
+
+/* ---------- Users (central-DB-backed; OMS assigns evaluators) ---------- */
 function usersTab() {
   const rows = DB.EMPLOYEES.map((u) => `
     <tr class="clickable" data-user="${u.id}">
       <td>${UI.who(u.name, u.initials, u.email)}</td>
       <td>${UI.esc(u.dept)}</td>
-      <td class="muted">${UI.esc(u.manager || "—")}</td>
+      <td>${evaluatorCell(u)}</td>
       <td><span class="tag">${u.obsRole === "leader" ? "Leader" : "Employee"}</span></td>
       <td>${statusBadge(u.active)}</td>
-      <td class="right"><button class="btn sm" data-manage="${u.id}">Manage</button></td>
+      <td class="right"><button class="btn sm" data-assign="${u.id}">Assign Evaluator</button></td>
     </tr>`).join("");
 
   return `
@@ -42,10 +46,10 @@ function usersTab() {
       <div><h2 class="mb-0">Users</h2><div class="small muted">${DB.EMPLOYEES.length} users · <span class="badge blue" style="vertical-align:middle">Synced from Central DB</span></div></div>
       <button class="btn sm" id="oms-sync">↻ Sync from Central DB</button>
     </div>
-    <div class="small muted" style="margin:-6px 0 12px">Identity (name, email, manager) is owned by the Central DB. OMS manages access role, department, and status.</div>
+    <div class="small muted" style="margin:-6px 0 12px">Identity, role, department and status are owned by the Central DB (read-only here). OMS assigns which leader(s) evaluate each user.</div>
     <div class="card" style="padding:6px 6px">
       <table class="table">
-        <thead><tr><th>User</th><th>Department</th><th>Manager</th><th>OMS Role</th><th>Status</th><th></th></tr></thead>
+        <thead><tr><th>User</th><th>Department</th><th>Evaluator</th><th>OMS Role</th><th>Status</th><th></th></tr></thead>
         <tbody>${rows}</tbody>
       </table>
     </div>`;
@@ -53,25 +57,21 @@ function usersTab() {
 
 /* ---------- Objective Templates (reusable, seeded — apply to seed a member) ---------- */
 function templatesTab() {
-  const rows = DB.OBJECTIVE_TEMPLATES.length ? DB.OBJECTIVE_TEMPLATES.map((t) => {
-    const org = t.items.filter((i) => i.category === "organization").length;
-    const per = t.items.filter((i) => i.category === "personal").length;
-    return `<tr>
+  const rows = DB.OBJECTIVE_TEMPLATES.length ? DB.OBJECTIVE_TEMPLATES.map((t) =>
+    `<tr>
       <td><strong>${UI.esc(t.name)}</strong><br><small class="muted">${UI.esc(t.description)}</small></td>
-      <td><span class="tag">${UI.esc(t.cadence)}</span></td>
-      <td>${org} org · ${per} personal</td>
+      <td>${t.items.length} objective${t.items.length === 1 ? "" : "s"}</td>
       <td class="right"><button class="btn sm primary" data-tpl-apply="${t.id}">Apply</button> <button class="btn sm danger" data-tpl-del="${t.id}">Delete</button></td>
-    </tr>`;
-  }).join("") : `<tr><td colspan="4" class="empty">No templates yet — create one to reuse across members.</td></tr>`;
+    </tr>`).join("") : `<tr><td colspan="3" class="empty">No templates yet — create one to reuse across members.</td></tr>`;
   return `
     <div class="section-head">
       <div><h2 class="mb-0">Objective Templates</h2><div class="small muted">${DB.OBJECTIVE_TEMPLATES.length} reusable templates · build once, assign to many</div></div>
       <button class="btn primary" id="tpl-new">+ New Template</button>
     </div>
-    <div class="small muted" style="margin:-6px 0 12px">Build a template from objectives (same fields as creating one), then assign it to one or more members to seed their ${UI.esc(DB.PERIOD)} objectives. Caps enforced (org ${DB.LIMITS.organization} · personal ${DB.LIMITS.personal}); duplicate titles are skipped.</div>
+    <div class="small muted" style="margin:-6px 0 12px">Build a template from objectives (same fields as creating one), then assign it to one or more members to seed their ${UI.esc(DB.PERIOD)} organization objectives. Cap enforced (org ${DB.LIMITS.organization}); duplicate titles are skipped.</div>
     <div class="card" style="padding:6px 6px">
       <table class="table">
-        <thead><tr><th>Template</th><th>Cadence</th><th>Objectives</th><th></th></tr></thead>
+        <thead><tr><th>Template</th><th>Objectives</th><th></th></tr></thead>
         <tbody>${rows}</tbody>
       </table>
     </div>`;
@@ -114,7 +114,7 @@ window.ViewsWire.admin = function () {
   if (AdminState.tab === "users") {
     const sync = document.getElementById("oms-sync");
     if (sync) sync.addEventListener("click", () => toastAdmin(`Synced ${DB.EMPLOYEES.length} users from the Central DB.`));
-    bindRowAction("[data-manage]", "tr[data-user]", "manage", "user", openManageUser);
+    bindRowAction("[data-assign]", "tr[data-user]", "assign", "user", openAssignEvaluator);
   } else if (AdminState.tab === "peer") {
     const cn = document.getElementById("crit-new");
     if (cn) cn.addEventListener("click", () => openCriterion(null));
@@ -145,28 +145,34 @@ function bindRowAction(btnSel, rowSel, btnKey, rowKey, handler) {
 }
 
 /* ---------- Modals ---------- */
-function openManageUser(id) {
+// Assign one or more evaluators (active leaders, excluding the user) to a user.
+// Identity/role/status stay owned by the Central DB — OMS only sets evaluators.
+function openAssignEvaluator(id) {
   const u = DB.EMPLOYEES.find((x) => x.id === id);
   if (!u) return;
+  const current = u.evaluators || [];
+  const leaders = DB.EMPLOYEES.filter((x) => x.active && x.obsRole === "leader" && x.id !== u.id);
+  const roleLabel = u.obsRole === "leader" ? "Leader" : "Employee";
+  const checks = leaders.length
+    ? leaders.map((l) => `<label style="display:flex;align-items:center;gap:8px;padding:5px 0;font-size:var(--fs-label);cursor:pointer"><input type="checkbox" class="eval-pick" value="${UI.esc(l.name)}" style="width:auto" ${current.includes(l.name) ? "checked" : ""} /> ${UI.esc(l.name)} <span class="muted">· ${UI.esc(l.dept)}</span></label>`).join("")
+    : `<div class="empty">No active leaders available to assign.</div>`;
   Modal.open(`
     <div class="modal-head">
-      <div><h3>${UI.esc(u.name)}</h3><div class="small muted" style="margin-top:4px">${UI.esc(u.email)} · reports to ${UI.esc(u.manager || "—")}</div></div>
+      <div><h3>Assign Evaluator</h3><div class="small muted" style="margin-top:4px">${UI.esc(u.name)} · ${roleLabel} · ${UI.esc(u.dept)}</div></div>
       <button class="close" data-close>×</button>
     </div>
-    <div class="small muted" style="margin:-4px 0 14px">Identity synced from Central DB (read-only). Edit OMS access below.</div>
-    <div class="grid grid-2">
-      <div class="field"><label>OMS Role</label>
-        <select id="mng-role"><option value="employee" ${u.obsRole !== "leader" ? "selected" : ""}>Employee</option><option value="leader" ${u.obsRole === "leader" ? "selected" : ""}>Leader</option></select>
-      </div>
-      <div class="field"><label>Department</label><select id="mng-dept">${deptOptions(u.dept)}</select></div>
+    <div class="small muted" style="margin:-4px 0 12px">Choose the leader(s) who will evaluate ${UI.esc(u.name)} — a user can have more than one evaluator. Users are owned by the Central DB; OMS only manages evaluator assignments.</div>
+    <div class="field"><label>Evaluators <span class="muted">· active leaders</span></label>
+      <div style="max-height:200px;overflow:auto;border:1px solid var(--border);border-radius:var(--r-btn);padding:8px 11px">${checks}</div>
     </div>
-    <label style="display:flex;align-items:center;gap:8px;font-size:var(--fs-label);cursor:pointer"><input type="checkbox" id="mng-active" style="width:auto" ${u.active ? "checked" : ""} /> Active in OMS</label>
-    <div class="modal-foot"><button class="btn" data-close>Cancel</button><button class="btn primary" id="mng-save">Save</button></div>`);
-  document.getElementById("mng-save").addEventListener("click", () => {
-    u.obsRole = document.getElementById("mng-role").value;
-    u.dept = document.getElementById("mng-dept").value;
-    u.active = document.getElementById("mng-active").checked;
-    Modal.close(); rerenderAdmin(); toastAdmin(`Updated OMS access for ${u.name}.`);
+    <div class="modal-foot"><button class="btn" data-close>Cancel</button>${leaders.length ? `<button class="btn primary" id="assign-save">Save</button>` : ""}</div>`);
+  const save = document.getElementById("assign-save");
+  if (save) save.addEventListener("click", () => {
+    u.evaluators = Array.from(document.querySelectorAll(".eval-pick:checked")).map((c) => c.value);
+    Modal.close(); rerenderAdmin();
+    toastAdmin(u.evaluators.length
+      ? `${u.name} will be evaluated by ${u.evaluators.join(", ")}.`
+      : `Cleared evaluators for ${u.name}.`);
   });
 }
 
@@ -176,12 +182,12 @@ function openApplyTemplate(id) {
   const t = DB.OBJECTIVE_TEMPLATES.find((x) => x.id === id);
   if (!t) return;
   const preview = t.items.map((i) =>
-    `<li><span class="ck">✓</span> <strong>${UI.esc(i.title)}</strong> <span class="tag">${i.category === "organization" ? "Org" : "Personal"}</span></li>`).join("");
+    `<li><span class="ck">✓</span> <strong>${UI.esc(i.title)}</strong></li>`).join("");
   const memberChecks = DB.EMPLOYEES.filter((u) => u.active).map((u) =>
     `<label style="display:flex;align-items:center;gap:8px;padding:4px 0;font-size:var(--fs-label);cursor:pointer"><input type="checkbox" class="tpl-member" value="${UI.esc(u.name)}" style="width:auto" /> ${UI.esc(u.name)} <span class="muted">· ${UI.esc(u.dept)}</span></label>`).join("");
   Modal.open(`
     <div class="modal-head">
-      <div><h3>Apply “${UI.esc(t.name)}”</h3><div class="small muted" style="margin-top:4px">${UI.esc(t.cadence)} · seeds ${t.items.length} objective${t.items.length === 1 ? "" : "s"} per member for ${UI.esc(DB.PERIOD)}</div></div>
+      <div><h3>Apply “${UI.esc(t.name)}”</h3><div class="small muted" style="margin-top:4px">Seeds ${t.items.length} organization objective${t.items.length === 1 ? "" : "s"} per member for ${UI.esc(DB.PERIOD)}</div></div>
       <button class="close" data-close>×</button>
     </div>
     <div class="field"><label>Assign to <span class="muted">· one or more members</span></label>
@@ -190,7 +196,7 @@ function openApplyTemplate(id) {
     </div>
     <label class="small muted" style="display:block;margin-bottom:4px">This template's objectives</label>
     <ul class="check-list" style="margin:0">${preview}</ul>
-    <div class="small muted" style="margin-top:8px">Objectives already at the cap or with a matching title are skipped (org ${DB.LIMITS.organization} · personal ${DB.LIMITS.personal}).</div>
+    <div class="small muted" style="margin-top:8px">Objectives already at the cap or with a matching title are skipped (org ${DB.LIMITS.organization}).</div>
     <div class="small" id="tpl-apply-msg" style="color:var(--red);margin-top:6px"></div>
     <div class="modal-foot"><button class="btn" data-close>Cancel</button><button class="btn primary" id="tpl-apply-confirm">Apply template</button></div>`);
   const setAll = (v) => document.querySelectorAll(".tpl-member").forEach((c) => { c.checked = v; });
@@ -212,15 +218,16 @@ function openApplyTemplate(id) {
 function applyTemplate(t, emp) {
   let added = 0, skipped = 0;
   t.items.forEach((item) => {
-    const cap = item.category === "organization" ? DB.LIMITS.organization : DB.LIMITS.personal;
+    // Template-seeded objectives are Organization type (leader-assigned).
     const mine = DB.OBJECTIVES.filter((o) => o.owner === emp.name && o.period === DB.PERIOD && !o.archived);
-    const count = mine.filter((o) => o.category === item.category).length;
+    const count = mine.filter((o) => o.category === "organization").length;
     const dup = mine.some((o) => o.title === item.title);
-    if (count >= cap || dup) { skipped++; return; }
+    if (count >= DB.LIMITS.organization || dup) { skipped++; return; }
     DB.OBJECTIVES.push({
       id: nextId(DB.OBJECTIVES), title: item.title, owner: emp.name, ownerInitials: emp.initials,
-      category: item.category, period: DB.PERIOD, description: item.description, targetDate: "",
-      selfPercent: item.category === "organization" ? null : 0, selfReport: "",
+      category: "organization", period: DB.PERIOD, description: item.description, targetDate: "",
+      weight: item.weight || "", focusAreas: item.focusAreas || [], requiresProof: !!item.requiresProof,
+      selfPercent: null, selfReport: "",
       managerPercent: null, managerComment: "", evidence: [], archived: false,
     });
     added++;
@@ -228,37 +235,30 @@ function applyTemplate(t, emp) {
   return { added, skipped };
 }
 
-// Build a template from objectives, mirroring the objective-creation flow
-// (category · title · description per item). Items accumulate in a live list;
-// name/cadence inputs are preserved because only the list re-paints. In-memory.
+// Build a template from objectives, mirroring the objective-creation flow (the
+// shared ObjForm fields per item). Items accumulate in a live list; the template
+// name input is preserved because only the list re-paints. In-memory.
 function openTemplateBuilder() {
   const items = [];
-  const cadOpts = ["Quarterly", "Annual", "Custom"].map((c) => `<option value="${c}">${c}</option>`).join("");
   Modal.open(`
     <div class="modal-head"><h3>New Objective Template</h3><button class="close" data-close>×</button></div>
-    <div class="grid grid-2">
-      <div class="field"><label>Template name</label><input type="text" id="tpl-name" placeholder="e.g. Q Engineering Baseline" /></div>
-      <div class="field"><label>Cadence</label><select id="tpl-cadence">${cadOpts}</select></div>
-    </div>
+    <div class="field"><label>Template name</label><input type="text" id="tpl-name" placeholder="e.g. Q Engineering Baseline" /></div>
     <div class="card" style="box-shadow:none;border:1px solid var(--border);margin-bottom:14px">
       <div class="card-title" style="margin:0 0 8px">Add objective <span class="hint">same fields as creating an objective</span></div>
-      <div class="grid grid-2">
-        <div class="field" style="margin-bottom:8px"><label>Category</label><select id="tpl-item-cat"><option value="organization">Organization</option><option value="personal">Personal</option></select></div>
-        <div class="field" style="margin-bottom:8px"><label>Title</label><input type="text" id="tpl-item-title" placeholder="e.g. Improve Code Quality" /></div>
-      </div>
-      <div class="field" style="margin-bottom:8px"><label>Description</label><textarea id="tpl-item-desc" placeholder="What should this objective achieve?"></textarea></div>
-      <button class="btn sm" id="tpl-item-add">+ Add objective</button>
+      ${ObjForm.fields()}
+      <button class="btn sm" id="tpl-item-add" style="margin-top:10px">+ Add objective</button>
     </div>
     <label class="small muted" style="display:block;margin-bottom:4px">Objectives in this template (<span id="tpl-count">0</span>)</label>
     <ul class="check-list" id="tpl-items"></ul>
     <div class="small" id="tpl-msg" style="color:var(--red);margin-top:6px"></div>
     <div class="modal-foot"><button class="btn" data-close>Cancel</button><button class="btn primary" id="tpl-save">Save template</button></div>`);
 
+  ObjForm.wire();
   const msg = (t) => { document.getElementById("tpl-msg").textContent = t || ""; };
   const list = document.getElementById("tpl-items");
   function paintItems() {
     list.innerHTML = items.length
-      ? items.map((i, idx) => `<li><span class="ck">✓</span> <strong>${UI.esc(i.title)}</strong> <span class="tag">${i.category === "organization" ? "Org" : "Personal"}</span> <button class="btn sm ghost" data-tpl-item-del="${idx}" title="Remove">✕</button>${i.description ? `<div class="small muted" style="margin-left:22px">${UI.esc(i.description)}</div>` : ""}</li>`).join("")
+      ? items.map((i, idx) => `<li><span class="ck">✓</span> <strong>${UI.esc(i.title)}</strong> <button class="btn sm ghost" data-tpl-item-del="${idx}" title="Remove">✕</button>${i.description ? `<div class="small muted" style="margin-left:22px">${UI.esc(i.description)}</div>` : ""}</li>`).join("")
       : `<li class="small muted">No objectives added yet.</li>`;
     document.getElementById("tpl-count").textContent = String(items.length);
     list.querySelectorAll("[data-tpl-item-del]").forEach((b) =>
@@ -267,11 +267,10 @@ function openTemplateBuilder() {
   paintItems();
 
   document.getElementById("tpl-item-add").addEventListener("click", () => {
-    const titleEl = document.getElementById("tpl-item-title");
-    const title = titleEl.value.trim();
-    if (!title) { msg("Give the objective a title before adding."); titleEl.focus(); return; }
-    items.push({ category: document.getElementById("tpl-item-cat").value, title, description: document.getElementById("tpl-item-desc").value.trim() });
-    titleEl.value = ""; document.getElementById("tpl-item-desc").value = ""; msg("");
+    const v = ObjForm.read();
+    if (!v.title) { msg("Give the objective a title before adding."); document.getElementById("of-title").focus(); return; }
+    items.push({ title: v.title, description: v.description, weight: v.weight, focusAreas: v.focusAreas, requiresProof: v.requiresProof });
+    ObjForm.reset(); msg("");
     paintItems();
   });
 
@@ -279,10 +278,9 @@ function openTemplateBuilder() {
     const name = document.getElementById("tpl-name").value.trim();
     if (!name) { msg("Give the template a name."); return; }
     if (!items.length) { msg("Add at least one objective to the template."); return; }
-    const cadence = document.getElementById("tpl-cadence").value;
     DB.OBJECTIVE_TEMPLATES.push({
-      id: nextId(DB.OBJECTIVE_TEMPLATES), name, cadence,
-      description: `${items.length} objective${items.length === 1 ? "" : "s"} · ${cadence.toLowerCase()}`,
+      id: nextId(DB.OBJECTIVE_TEMPLATES), name,
+      description: `${items.length} objective${items.length === 1 ? "" : "s"}`,
       items: items.slice(),
     });
     Modal.close(); rerenderAdmin(); toastAdmin(`Template “${name}” created.`);

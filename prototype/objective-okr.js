@@ -71,6 +71,27 @@
     return `<div style="margin-top:10px"><div class="small muted" style="margin-bottom:2px">Key Results <span class="hint">measurable outcomes</span></div>${rows}${editable ? `<button class="btn sm ghost" data-kr-edit="${o.id}">Edit key results</button>` : ""}</div>`;
   }
 
+  // Per-KR current-value inputs for the Self Evaluation modal. No definition
+  // editing and no auto-wiring — values are read on Save via commitCurrents().
+  function krEditRows(o) {
+    const krs = o.keyResults || [];
+    if (!krs.length) return `<div class="small muted">No key results yet.</div>`;
+    return krs.map((kr, i) => {
+      const p = krProgress(kr);
+      return `<div style="margin:8px 0">
+        <div class="spread" style="align-items:baseline"><span class="small">${UI.esc(kr.title)}</span><span class="small muted"><input type="number" data-kr-cur="${o.id}:${i}" value="${kr.current}" style="max-width:76px" /> / ${kr.target} ${UI.esc(kr.unit)} · ${p}%</span></div>
+        ${UI.progress(p, UI.pctStatus(p))}
+      </div>`;
+    }).join("");
+  }
+  // Read the modal's KR current-value inputs into the objective (no rerender).
+  function commitCurrents(o) {
+    document.querySelectorAll(`[data-kr-cur^="${o.id}:"]`).forEach((el) => {
+      const i = Number(el.dataset.krCur.split(":")[1]);
+      if (o.keyResults && o.keyResults[i]) o.keyResults[i].current = Number(el.value);
+    });
+  }
+
   // Read-only KR block for the objective detail modal.
   function krDetail(o) {
     const krs = o.keyResults || [];
@@ -171,5 +192,5 @@
     });
   }
 
-  window.ObjOKR = { krProgress, krSelfList, krDetail, krManagerList, saveManagerEval, deriveManagerPercent, wireSelf, editKRs };
+  window.ObjOKR = { krProgress, krSelfList, krEditRows, commitCurrents, krDetail, krManagerList, saveManagerEval, deriveManagerPercent, wireSelf, editKRs };
 })();

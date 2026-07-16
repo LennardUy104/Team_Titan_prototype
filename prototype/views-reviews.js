@@ -243,16 +243,16 @@ function openCreateOrg(subject) {
   Modal.open(`
     <div class="modal-head"><h3>New Organization Objective</h3><button class="close" data-close>×</button></div>
     <div class="small muted" style="margin:-4px 0 12px">Assigned to ${UI.esc(subject.name)} · ${count} of ${DB.LIMITS.organization} used</div>
-    <div class="field"><label>Title</label><input type="text" id="new-org-title" placeholder="e.g. Improve Delivery Reliability" /></div>
-    <div class="field"><label>Description</label><textarea id="new-org-desc" placeholder="What should this member achieve this half-year?"></textarea></div>
+    ${ObjForm.fields()}
     <div class="modal-foot"><button class="btn" data-close>Cancel</button><button class="btn primary" id="create-org-confirm">Assign</button></div>`);
+  ObjForm.wire();
   document.getElementById("create-org-confirm").addEventListener("click", () => {
-    const title = document.getElementById("new-org-title").value.trim();
-    const desc = document.getElementById("new-org-desc").value.trim();
-    if (!title) { toast("Give the objective a title."); return; }
+    const v = ObjForm.read();
+    if (!v.title) { toast("Give the objective a title."); return; }
     DB.OBJECTIVES.push({
-      id: nextObjectiveId(), title, owner: subject.name, ownerInitials: subject.initials,
-      category: "organization", period: DB.PERIOD, description: desc,
+      id: nextObjectiveId(), title: v.title, owner: subject.name, ownerInitials: subject.initials,
+      category: "organization", period: DB.PERIOD, description: v.description,
+      weight: v.weight, focusAreas: v.focusAreas, requiresProof: v.requiresProof,
       selfPercent: null, selfReport: "", managerPercent: null, managerComment: "", evidence: [], keyResults: [],
     });
     Modal.close();

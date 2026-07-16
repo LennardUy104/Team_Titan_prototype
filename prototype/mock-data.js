@@ -13,14 +13,14 @@ const CURRENT_USER = {
 // manager, role/title) are owned there (read-only in OMS). obsRole + active + dept
 // grouping are the OMS-side attributes managed in the Admin console.
 const EMPLOYEES = [
-  { id: 1, name: "Abdul Palala",  initials: "AP", role: "Software Engineer", dept: "Engineering", email: "abdul.palala@company.com",  manager: "Andre Uy",   obsRole: "employee", active: true,  score: 88, trend: "up",   status: "on-track" },
-  { id: 2, name: "Maria Santos",  initials: "MS", role: "Senior Engineer",   dept: "Engineering", email: "maria.santos@company.com",  manager: "Andre Uy",   obsRole: "employee", active: true,  score: 92, trend: "up",   status: "on-track" },
-  { id: 3, name: "John Cruz",     initials: "JC", role: "Software Engineer", dept: "Engineering", email: "john.cruz@company.com",     manager: "Andre Uy",   obsRole: "employee", active: true,  score: 64, trend: "down", status: "at-risk"  },
-  { id: 4, name: "Lisa Tan",      initials: "LT", role: "QA Engineer",       dept: "QA",          email: "lisa.tan@company.com",      manager: "Andre Uy",   obsRole: "employee", active: true,  score: 79, trend: "up",   status: "on-track" },
-  { id: 5, name: "Kevin Reyes",   initials: "KR", role: "Software Engineer", dept: "Engineering", email: "kevin.reyes@company.com",   manager: "Andre Uy",   obsRole: "employee", active: false, score: 71, trend: "flat", status: "on-track" },
-  { id: 6, name: "Grace Lim",     initials: "GL", role: "Product Designer",  dept: "Engineering", email: "grace.lim@company.com",     manager: "Andre Uy",   obsRole: "employee", active: true,  score: 85, trend: "up",   status: "on-track" },
-  { id: 7, name: "Rainiel Dejito",initials: "RD", role: "People Partner",    dept: "Admin",       email: "rainiel.dejito@company.com",manager: "Diana Cruz", obsRole: "leader",   active: true,  score: 90, trend: "flat", status: "on-track" },
-  { id: 8, name: "Andre Uy",      initials: "AU", role: "Eng. Manager",      dept: "Engineering", email: "andre.uy@company.com",      manager: "Diana Cruz", obsRole: "leader",   active: true,  score: 87, trend: "up",   status: "on-track" },
+  { id: 1, name: "Abdul Palala",  initials: "AP", role: "Software Engineer", dept: "Engineering", email: "abdul.palala@company.com",  manager: "Andre Uy",   obsRole: "employee", active: true,  score: 88, trend: "up",   status: "on-track", evaluators: ["Andre Uy", "Rainiel Dejito"] },
+  { id: 2, name: "Maria Santos",  initials: "MS", role: "Senior Engineer",   dept: "Engineering", email: "maria.santos@company.com",  manager: "Andre Uy",   obsRole: "employee", active: true,  score: 92, trend: "up",   status: "on-track", evaluators: ["Andre Uy"] },
+  { id: 3, name: "John Cruz",     initials: "JC", role: "Software Engineer", dept: "Engineering", email: "john.cruz@company.com",     manager: "Andre Uy",   obsRole: "employee", active: true,  score: 64, trend: "down", status: "at-risk",  evaluators: ["Andre Uy"] },
+  { id: 4, name: "Lisa Tan",      initials: "LT", role: "QA Engineer",       dept: "QA",          email: "lisa.tan@company.com",      manager: "Andre Uy",   obsRole: "employee", active: true,  score: 79, trend: "up",   status: "on-track", evaluators: ["Andre Uy"] },
+  { id: 5, name: "Kevin Reyes",   initials: "KR", role: "Software Engineer", dept: "Engineering", email: "kevin.reyes@company.com",   manager: "Andre Uy",   obsRole: "employee", active: false, score: 71, trend: "flat", status: "on-track", evaluators: ["Andre Uy"] },
+  { id: 6, name: "Grace Lim",     initials: "GL", role: "Product Designer",  dept: "Engineering", email: "grace.lim@company.com",     manager: "Andre Uy",   obsRole: "employee", active: true,  score: 85, trend: "up",   status: "on-track", evaluators: ["Rainiel Dejito"] },
+  { id: 7, name: "Rainiel Dejito",initials: "RD", role: "People Partner",    dept: "Admin",       email: "rainiel.dejito@company.com",manager: "Diana Cruz", obsRole: "leader",   active: true,  score: 90, trend: "flat", status: "on-track", evaluators: ["Andre Uy"] },
+  { id: 8, name: "Andre Uy",      initials: "AU", role: "Eng. Manager",      dept: "Engineering", email: "andre.uy@company.com",      manager: "Diana Cruz", obsRole: "leader",   active: true,  score: 87, trend: "up",   status: "on-track", evaluators: ["Rainiel Dejito"] },
 ];
 
 // Review cycle is a half-year. PERIODS newest-first; index 0 is the current (open) one.
@@ -80,6 +80,7 @@ const OBJECTIVES = [
     description: "Close the gap to the 80% unit test coverage objective.",
     selfPercent: 55, selfReport: "Currently at 74%; adding suites for the auth and platform modules.",
     managerPercent: null, managerComment: "",
+    requiresProof: true, proofs: [],
     evidence: [{ src: "Backlog", text: "Coverage measured at 74%" }],
   },
   {
@@ -105,6 +106,7 @@ const OBJECTIVES = [
     description: "Drive quality practices across the team via faster reviews and fewer incidents.",
     selfPercent: 80, selfReport: "Median PR review turnaround under 1 day; production incidents down 23%.",
     managerPercent: null, managerComment: "",
+    requiresProof: true, proofs: [{ kind: "link", value: "https://github.com/sun-asterisk/titan/pull/128", name: "Quality metrics PR" }],
     evidence: [],
   },
   // ---- Grace Lim ----
@@ -217,29 +219,29 @@ const OBJECTIVES = [
 // stub {category, title, description}; caps (org 3 / personal 5) are enforced on apply.
 const OBJECTIVE_TEMPLATES = [
   {
-    id: 1, name: "Q Engineering Baseline", cadence: "Quarterly",
+    id: 1, name: "Q Engineering Baseline",
     description: "Standard quarterly objectives for an engineer.",
     items: [
-      { category: "organization", title: "Improve Code Quality", description: "Raise code quality through reviews, tests, and fewer defects." },
-      { category: "organization", title: "Improve Delivery Reliability", description: "Deliver committed work on schedule with fewer overdue items." },
-      { category: "personal", title: "Raise Unit Test Coverage", description: "Move unit test coverage toward the team target." },
+      { title: "Improve Code Quality", description: "Raise code quality through reviews, tests, and fewer defects." },
+      { title: "Improve Delivery Reliability", description: "Deliver committed work on schedule with fewer overdue items." },
+      { title: "Raise Unit Test Coverage", description: "Move unit test coverage toward the team target." },
     ],
   },
   {
-    id: 2, name: "Annual IC Track", cadence: "Annual",
+    id: 2, name: "Annual IC Track",
     description: "Yearly growth objectives for an individual contributor.",
     items: [
-      { category: "organization", title: "Own a Major Feature End-to-End", description: "Lead delivery of a significant feature from design to release." },
-      { category: "personal", title: "Grow a Technical Specialty", description: "Deepen expertise in a chosen area (infra, performance, security)." },
-      { category: "personal", title: "Mentor a Teammate", description: "Support a colleague's growth via pairing and reviews." },
+      { title: "Own a Major Feature End-to-End", description: "Lead delivery of a significant feature from design to release." },
+      { title: "Grow a Technical Specialty", description: "Deepen expertise in a chosen area (infra, performance, security)." },
+      { title: "Mentor a Teammate", description: "Support a colleague's growth via pairing and reviews." },
     ],
   },
   {
-    id: 3, name: "New Hire Ramp (90-day)", cadence: "Quarterly",
+    id: 3, name: "New Hire Ramp (90-day)",
     description: "Onboarding objectives for a new team member.",
     items: [
-      { category: "organization", title: "Complete Onboarding & First Delivery", description: "Finish onboarding and ship a first scoped task." },
-      { category: "personal", title: "Learn the Codebase & Tooling", description: "Build working knowledge of the stack, CI, and workflows." },
+      { title: "Complete Onboarding & First Delivery", description: "Finish onboarding and ship a first scoped task." },
+      { title: "Learn the Codebase & Tooling", description: "Build working knowledge of the stack, CI, and workflows." },
     ],
   },
 ];
