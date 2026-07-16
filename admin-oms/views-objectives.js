@@ -6,9 +6,7 @@ window.Views = window.Views || {};
 window.ViewsWire = window.ViewsWire || {};
 
 // Which half-year is being viewed (persists across nav within the session).
-const ObjState = { period: DB.PERIOD, showArchived: false };
-
-function objField(o, key, value) { o[key] = value; } // mutate in-memory mock record
+const ObjState = { period: DB.PERIOD, showArchived: false, editMission: false };
 
 // Next half-year label: "2026-1st" -> "2026-2nd" -> "2027-1st" ...
 function nextPeriodLabel(p) {
@@ -23,19 +21,31 @@ function objectiveCard(o, isCurrent) {
   const achieved = UI.objAchieved(o);
   const evaluated = o.managerPercent != null;
 
-  const selfBlock = canEdit
-    ? `<label class="small muted">Achieved %</label>
-       <input type="number" min="0" max="100" value="${o.selfPercent != null ? o.selfPercent : ""}" data-self-pct="${o.id}" placeholder="0–100" style="max-width:120px" />
-       <label class="small muted" style="margin-top:8px;display:block">Achievement report <span class="muted">· why this %</span></label>
-       <textarea data-self-report="${o.id}" placeholder="Explain your progress and the reason for this percentage…">${UI.esc(o.selfReport)}</textarea>`
-    : `<div class="small"><strong>${o.selfPercent != null ? o.selfPercent + "%" : "—"}</strong><span class="muted"> · self-assessed</span></div>
-       <p class="small muted" style="margin:6px 0 0">${UI.esc(o.selfReport) || "No report provided."}</p>
-       ${(isCurrent && evaluated) ? `<div class="small muted" style="margin-top:6px">🔒 Locked after manager evaluation</div>` : ""}`;
+  // ---- Self Evaluation (collapsible; read-only until "Evaluate") ----
+  const selfSummary = o.selfPercent != null ? `${o.selfPercent}% · self-assessed` : "Not evaluated yet";
+  const selfActions = canEdit
+    ? `<div class="row" style="gap:8px;margin-top:12px"><button class="btn sm primary" data-self-eval="${o.id}">✎ Evaluate</button><button class="btn sm ghost" data-kr-edit="${o.id}">Edit key results</button></div>`
+    : (evaluated ? `<div class="small muted" style="margin-top:8px">🔒 Locked after manager evaluation</div>` : "");
+  const selfPanel = `<details class="ev-panel" open style="margin-top:12px;border-top:1px solid var(--border);padding-top:10px">
+    <summary style="cursor:pointer;font-weight:600;font-size:var(--fs-label)">Self Evaluation <span class="muted">· ${selfSummary}</span></summary>
+    <div style="margin-top:10px">
+      <div class="small"><strong>${o.selfPercent != null ? o.selfPercent + "%" : "—"}</strong><span class="muted"> · achieved</span></div>
+      <p class="small muted" style="margin:6px 0 0">${UI.esc(o.selfReport) || "No report provided."}</p>
+      ${window.ObjOKR.krSelfList(o, false)}
+      ${selfActions}
+    </div>
+  </details>`;
 
-  const managerBlock = evaluated
+  // ---- Manager Evaluation (collapsible; read-only for the employee) ----
+  const mgrSummary = evaluated ? `Evaluated · ${o.managerPercent}%` : "Awaiting evaluation";
+  const mgrBody = evaluated
     ? `<div class="small"><strong>${o.managerPercent}%</strong><span class="muted"> · manager</span></div>
        <p class="small muted" style="margin:6px 0 0">${UI.esc(o.managerComment) || "No comment."}</p>`
     : `<div class="empty" style="padding:14px">Awaiting manager evaluation</div>`;
+  const mgrPanel = `<details class="ev-panel" style="margin-top:12px;border-top:1px solid var(--border);padding-top:10px">
+    <summary style="cursor:pointer;font-weight:600;font-size:var(--fs-label)">Manager Evaluation <span class="muted">· ${mgrSummary}</span></summary>
+    <div style="margin-top:10px">${mgrBody}</div>
+  </details>`;
 
   const targetLabel = o.targetDate || UI.periodEnd(o.period);
   return `<div class="card" style="margin-bottom:12px">
@@ -47,10 +57,9 @@ function objectiveCard(o, isCurrent) {
       </div>
     </div>
     <p class="small muted" style="margin:8px 0 12px">${UI.esc(o.description)}</p>
-    <div class="fb-cols">
-      <div><h4>Self evaluation</h4>${selfBlock}${window.ObjOKR.krSelfList(o, canEdit)}</div>
-      <div><h4>Manager evaluation</h4>${managerBlock}</div>
-    </div>
+    ${selfPanel}
+    ${mgrPanel}
+    ${window.ObjProof.panel(o, canEdit)}
     ${window.ObjEvidence.panel(o)}
   </div>`;
 }
@@ -111,11 +120,21 @@ window.Views.objectives = function (role) {
 
   const banner = isCurrent ? "" : `<div class="small muted" style="margin-bottom:12px">🔒 ${UI.esc(period)} is a closed half-year — read-only history.</div>`;
 
+  // Mission is read-only with an Edit button (GitHub-PR style); editing swaps in a
+  // full-width single-line input. Only the current half-year is editable.
+  const missionBody = (isCurrent && ObjState.editMission)
+    ? `<div class="row" style="gap:8px;align-items:center">
+         <input type="text" id="mission-input" value="${UI.esc(mission)}" placeholder="Describe your focus for the coming half year…" style="flex:1;min-width:0" />
+         <button class="btn sm primary" id="mission-save">Save</button>
+         <button class="btn sm" id="mission-cancel">Cancel</button>
+       </div>`
+    : `<div class="row" style="gap:10px;align-items:center">
+         <p class="muted" style="margin:0;flex:1">${UI.esc(mission) || "—"}</p>
+         ${isCurrent ? `<button class="btn sm ghost" id="mission-edit">✎ Edit</button>` : ""}
+       </div>`;
   const missionCard = `<div class="card" style="margin-bottom:20px">
     <div class="card-title">Mission Statement <span class="hint">${UI.esc(period)} · one sentence</span></div>
-    ${isCurrent
-      ? `<textarea id="mission" placeholder="Describe your focus for the coming half year…">${UI.esc(mission)}</textarea>`
-      : `<p class="muted" style="margin:0">${UI.esc(mission) || "—"}</p>`}
+    ${missionBody}
   </div>`;
 
   const archivedSection = archived.length ? `
@@ -139,10 +158,10 @@ window.Views.objectives = function (role) {
 window.ViewsWire.objectives = function (role) {
   // Half-year selector: dropdown + prev/next stepper.
   const sel = document.getElementById("period-select");
-  if (sel) sel.addEventListener("change", () => { ObjState.period = sel.value; rerenderObjectives(role); });
+  if (sel) sel.addEventListener("change", () => { ObjState.period = sel.value; ObjState.editMission = false; rerenderObjectives(role); });
   const stepTo = (delta) => {
     const i = DB.PERIODS.indexOf(ObjState.period) + delta;
-    if (i >= 0 && i < DB.PERIODS.length) { ObjState.period = DB.PERIODS[i]; rerenderObjectives(role); }
+    if (i >= 0 && i < DB.PERIODS.length) { ObjState.period = DB.PERIODS[i]; ObjState.editMission = false; rerenderObjectives(role); }
   };
   const prev = document.getElementById("period-prev");   // older
   if (prev) prev.addEventListener("click", () => stepTo(1));
@@ -153,21 +172,21 @@ window.ViewsWire.objectives = function (role) {
   const newHalf = document.getElementById("period-new-half");
   if (newHalf) newHalf.addEventListener("click", () => confirmNewHalfYear(role));
 
-  // Mission statement — persist to the in-memory record (current period only).
-  const mission = document.getElementById("mission");
-  if (mission) mission.addEventListener("input", () => { DB.MISSION_STATEMENTS[`${ObjState.period}|${DB.CURRENT_USER[role].name}`] = mission.value; });
+  // Mission statement — edit behind a button; persist to the in-memory record on Save.
+  const mEdit = document.getElementById("mission-edit");
+  if (mEdit) mEdit.addEventListener("click", () => { ObjState.editMission = true; rerenderObjectives(role); });
+  const mSave = document.getElementById("mission-save");
+  if (mSave) mSave.addEventListener("click", () => {
+    DB.MISSION_STATEMENTS[`${ObjState.period}|${DB.CURRENT_USER[role].name}`] = document.getElementById("mission-input").value.trim();
+    ObjState.editMission = false; rerenderObjectives(role);
+  });
+  const mCancel = document.getElementById("mission-cancel");
+  if (mCancel) mCancel.addEventListener("click", () => { ObjState.editMission = false; rerenderObjectives(role); });
 
   // Self-assessment edits — write straight to the objective record (keeps focus).
-  document.querySelectorAll("[data-self-pct]").forEach((el) =>
-    el.addEventListener("input", () => {
-      const o = DB.OBJECTIVES.find((x) => x.id === Number(el.dataset.selfPct));
-      if (o) objField(o, "selfPercent", el.value === "" ? null : Math.max(0, Math.min(100, Number(el.value))));
-    }));
-  document.querySelectorAll("[data-self-report]").forEach((el) =>
-    el.addEventListener("input", () => {
-      const o = DB.OBJECTIVES.find((x) => x.id === Number(el.dataset.selfReport));
-      if (o) objField(o, "selfReport", el.value);
-    }));
+  // Self Evaluation is edited in a modal (the card is read-only until "Evaluate").
+  document.querySelectorAll("[data-self-eval]").forEach((b) =>
+    b.addEventListener("click", () => { const o = DB.OBJECTIVES.find((x) => x.id === Number(b.dataset.selfEval)); if (o) openSelfEval(o, role); }));
 
   const add = document.getElementById("add-personal");
   if (add) add.addEventListener("click", () => openCreatePersonal(role));
@@ -186,6 +205,8 @@ window.ViewsWire.objectives = function (role) {
       if (o) { o.archived = false; rerenderObjectives(role); toastObj(`“${o.title}” restored.`); }
     }));
 
+  // Proof of Output controls (owner submits / removes their own proof).
+  window.ObjProof.wire(() => rerenderObjectives(role));
   // Evidence & Measurement panel controls (curate / remove / attach / edit).
   window.ObjEvidence.wire(() => rerenderObjectives(role));
   // Key Result current-value updates + KR editor.
@@ -218,23 +239,23 @@ function openCreatePersonal(role) {
 
   Modal.open(`
     <div class="modal-head"><h3>New Personal Objective</h3><button class="close" data-close>×</button></div>
-    <div class="field"><label>Title</label><input type="text" id="new-obj-title" placeholder="e.g. Improve Test Coverage" /></div>
-    <div class="field"><label>Description</label><textarea id="new-obj-desc" placeholder="What do you want to achieve this half-year?"></textarea></div>
+    ${ObjForm.fields()}
     <div class="field"><label>Target date <span class="muted">· defaults to the half-year end</span></label><input type="date" id="new-obj-target" /></div>
     <div class="small muted">${count} of ${DB.LIMITS.personal} personal objectives used for ${UI.esc(DB.PERIOD)}.</div>
     <div class="modal-foot">
       <button class="btn" data-close>Cancel</button>
       <button class="btn primary" id="create-personal-confirm">Create</button>
     </div>`);
+  ObjForm.wire();
 
   document.getElementById("create-personal-confirm").addEventListener("click", () => {
-    const title = document.getElementById("new-obj-title").value.trim();
-    const desc = document.getElementById("new-obj-desc").value.trim();
+    const v = ObjForm.read();
+    if (!v.title) { toastObj("Give your objective a title."); return; }
     const targetDate = document.getElementById("new-obj-target").value;
-    if (!title) { toastObj("Give your objective a title."); return; }
     DB.OBJECTIVES.push({
-      id: nextObjectiveId(), title, owner: me.name, ownerInitials: me.initials,
-      category: "personal", period: DB.PERIOD, description: desc, targetDate,
+      id: nextObjectiveId(), title: v.title, owner: me.name, ownerInitials: me.initials,
+      category: "personal", period: DB.PERIOD, description: v.description, targetDate,
+      weight: v.weight, focusAreas: v.focusAreas, requiresProof: v.requiresProof,
       selfPercent: 0, selfReport: "", managerPercent: null, managerComment: "", evidence: [], keyResults: [], archived: false,
     });
     Modal.close();
@@ -244,6 +265,33 @@ function openCreatePersonal(role) {
 
 function nextObjectiveId() {
   return DB.OBJECTIVES.reduce((max, o) => Math.max(max, o.id), 100) + 1;
+}
+
+// Self-assessment editor (opened by the card's "Evaluate" button). Edits Achieved %,
+// the report, and Key Result current-values together. Hard gate: can't save 100%
+// while proof of output is required but not yet attached.
+function openSelfEval(o, role) {
+  Modal.open(`
+    <div class="modal-head"><h3>Self Evaluation</h3><button class="close" data-close>×</button></div>
+    <div class="small muted" style="margin:-4px 0 12px">${UI.esc(o.title)}</div>
+    <div class="field"><label>Achieved %</label><input type="number" min="0" max="100" id="se-pct" value="${o.selfPercent != null ? o.selfPercent : ""}" placeholder="0–100" style="max-width:140px" /></div>
+    <div class="field"><label>Achievement report <span class="muted">· why this %</span></label><textarea id="se-report" placeholder="Explain your progress and the reason for this percentage…">${UI.esc(o.selfReport)}</textarea></div>
+    <div class="field"><label>Key Results <span class="muted">· update current values</span></label>${window.ObjOKR.krEditRows(o)}</div>
+    <div class="small" id="se-msg" style="color:var(--red);margin-top:6px"></div>
+    <div class="modal-foot"><button class="btn" data-close>Cancel</button><button class="btn primary" id="se-save">Save</button></div>`);
+  document.getElementById("se-save").addEventListener("click", () => {
+    const raw = document.getElementById("se-pct").value;
+    const pct = raw === "" ? null : Math.max(0, Math.min(100, Number(raw)));
+    if (pct === 100 && !window.ObjProof.has(o)) {
+      document.getElementById("se-msg").textContent = "Attach proof of output before marking this objective 100% complete.";
+      return;
+    }
+    o.selfPercent = pct;
+    o.selfReport = document.getElementById("se-report").value;
+    window.ObjOKR.commitCurrents(o);
+    Modal.close();
+    rerenderObjectives(role);
+  });
 }
 
 // Objective detail (opened from the Feedback tab). Shows the full record —
@@ -276,6 +324,8 @@ function openDetailModal(id) {
     ${managerBlock}
 
     ${window.ObjOKR.krDetail(o)}
+
+    ${window.ObjProof.panel(o, false)}
 
     ${window.ObjEvidence.block(o)}
 

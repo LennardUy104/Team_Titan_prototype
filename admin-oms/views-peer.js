@@ -1,19 +1,21 @@
 /* Titan prototype — Peer Review. Assignments are generated automatically from
    project membership each evaluation cycle (June & December) — no manual requests.
    Tabs are role-aware:
-     Employee: To Review · About Me
-     Leader:   To Review · Assignments · About Me
+     Employee: To Review only — rendered without a tab switcher (a lone tab is pointless)
+     Leader:   To Review · Assignments
        To Review   — reviews where I'm the reviewer; rate each criterion 1–5 stars
        Assignments — leader monitors/generates/deletes assignments for projects they lead
-       About Me    — anonymous aggregate about me: average rating + per-criterion
-                     breakdown (reviewers are never shown)
    Peer reviews are ALWAYS anonymous — the subject never sees who reviewed them.
+   RESULTS ARE WITHHELD: no user may see peer-review outcomes about anyone
+   (including themselves) — only the Leader views results, via Assignments. That's
+   why there is no "About Me" tab and completed reviews show no scores here. A full
+   leader results view is the next scope.
    Reviews are scored against the active template in DB.PEER_REVIEW_TEMPLATE
    (managed in Admin / OMS › Peer Review). Assignment logic lives in PeerAssign. */
 window.Views = window.Views || {};
 window.ViewsWire = window.ViewsWire || {};
 
-const PeerState = { tab: "to-review", cycle: DB.CURRENT_CYCLE, asg: { project: "all", subject: "all", status: "all", search: "", view: "all", page: 1, expanded: {} } };
+const PeerState = { tab: "to-review", cycle: DB.CURRENT_CYCLE, asg: { project: "all", subject: "all", status: "all", search: "", page: 1, expanded: {}, panelOpen: false, draft: null } };
 const ASG_GROUPS_PER_PAGE = 10;
 
 // The evaluation cycle in view (peer review repeats every 6 months). Shared
@@ -26,10 +28,10 @@ function peerCycleBar() {
 }
 
 // Tabs available to a role. Employees can't request/manage; leaders get Assignments.
+// No "About Me" tab: peer-review results are withheld from everyone but the leader.
 function peerTabs(role) {
   const tabs = [{ id: "to-review", label: "To Review" }];
   if (role === "leader") tabs.push({ id: "assignments", label: "Assignments" });
-  tabs.push({ id: "about-me", label: "About Me" });
   return tabs;
 }
 
@@ -56,7 +58,10 @@ function peerStatusBadge(status) {
 }
 
 function peerTabsBar(role) {
-  const tabs = peerTabs(role).map((t) =>
+  const list = peerTabs(role);
+  // A lone tab (employee → To Review only) needs no switcher; show the content bare.
+  if (list.length <= 1) return "";
+  const tabs = list.map((t) =>
     `<button class="role-btn ${t.id === PeerState.tab ? "active" : ""}" data-peer-tab="${t.id}">${t.label}</button>`).join("");
   return `<div class="role-switch" id="peer-tabs" style="margin-bottom:18px">${tabs}</div>`;
 }
@@ -91,28 +96,25 @@ function toReviewTab() {
     <div class="grid" style="gap:12px">${doneCards}</div>` : ""}`;
 }
 
-// A finished review I wrote (shown under "Completed by you" on To Review), so it
-// shows the subject. Peer feedback ABOUT me is never shown per-reviewer — see
-// aboutMeTab, which aggregates anonymously.
+// A finished review I wrote (shown under "Completed by you" on To Review). Results
+// are withheld from everyone but the leader, so we confirm only that I submitted
+// this review — never the scores I gave. The leader sees outcomes via Assignments.
 function reviewDoneCard(r) {
-  const scoreRows = (r.scores && r.scores.length)
-    ? r.scores.map((s) =>
-        `<div class="spread" style="align-items:center;padding:3px 0"><span class="small muted">${UI.esc(s.label)}</span>${peerStars(s.rating)}</div>`).join("")
-    : `<div class="small muted">—</div>`;
   return `<div class="card">
-    <div class="spread" style="align-items:flex-start">
+    <div class="spread" style="align-items:center">
       <div>${UI.who(r.subject, r.subjectInitials, "")}</div>
-      <div style="text-align:right"><div class="small muted">Overall</div>${peerStars(r.rating)}</div>
+      ${peerStatusBadge("completed")}
     </div>
-    <div style="margin-top:12px;border-top:1px solid var(--border);padding-top:10px">${scoreRows}</div>
   </div>`;
 }
 
-/* ---------- Assignments (Leader) — enterprise review-monitoring grid ----------
-   Rows are grouped by the person being reviewed (no name duplication) and
-   expand to reveal reviewers. Summary cards, saved views, filters + search, and
-   pagination-over-groups keep it scalable for large HR rosters. Assignments are
-   project-driven (PeerAssign) — never manually requested. */
+/* ---------- Assignments (Leader) — peer-review results & status grid ----------
+   One clean row per employee shows the anonymous aggregate RESULT (avg rating)
+   beside completion STATUS, so the leader sees both at a glance. Filters live in
+   a popover (Cycle · Project · Employee · Status) and commit only on "Update
+   Results" (deferred apply); search is live. Expanding a row reveals reviewer
+   progress (status only — reviews stay anonymous) plus the anonymous per-criterion
+   breakdown. Assignments are project-driven (PeerAssign) — never manually requested. */
 
 // Derived per-review status: a pending review past the cycle's due date is overdue.
 function asgStatusOf(r) {
@@ -124,15 +126,36 @@ function asgChip(s) {
     : s === "overdue" ? `<span class="badge red">Overdue</span>`
     : `<span class="badge amber">Pending</span>`;
 }
-// Saved views set filter combinations without hand-rebuilding them.
-function asgApplyView(view) {
+// The Filters popover. Edits go to a DRAFT (Cycle/Project/Employee/Status) that is
+// committed only when "Update Results" is clicked. projects/people fill the dropdowns.
+function asgFilterPanel(projects, people) {
   const f = PeerState.asg;
-  Object.assign(f, { project: "all", subject: "all", status: "all", search: "", page: 1, view });
-  if (view === "pending") f.status = "pending";
-  else if (view === "completed") f.status = "completed";
-  else if (view === "overdue") f.status = "overdue";
-  else if (view === "current-cycle") PeerState.cycle = DB.CURRENT_CYCLE;
-  // "all" / "my-team": defaults (a leader is already scoped to their team's projects).
+  const d = f.draft || { cycle: PeerState.cycle, project: f.project, subject: f.subject, status: f.status };
+  const opt = (v, label, sel) => `<option value="${UI.esc(v)}" ${v === sel ? "selected" : ""}>${UI.esc(label)}</option>`;
+  const cycleOpts = DB.EVAL_CYCLES.map((c) => opt(c.id, `${c.label}${c.id === DB.CURRENT_CYCLE ? " · current" : ""}`, d.cycle)).join("");
+  return `<div class="filter-panel" id="asg-panel">
+    <div class="filter-field"><label>Evaluation Cycle</label><select id="asg-d-cycle">${cycleOpts}</select></div>
+    <div class="filter-field"><label>Project</label><select id="asg-d-project">${opt("all", "All projects", d.project)}${projects.map((p) => opt(p, p, d.project)).join("")}</select></div>
+    <div class="filter-field"><label>Employee</label><select id="asg-d-subject">${opt("all", "All people", d.subject)}${people.map((p) => opt(p, p, d.subject)).join("")}</select></div>
+    <div class="filter-field"><label>Status</label><select id="asg-d-status">${opt("all", "All statuses", d.status)}${opt("pending", "Pending", d.status)}${opt("overdue", "Overdue", d.status)}${opt("completed", "Completed", d.status)}</select></div>
+    <div class="filter-actions">
+      <button class="btn sm" id="asg-clear">Clear</button>
+      <button class="btn sm primary" id="asg-apply">Update Results</button>
+    </div>
+  </div>`;
+}
+
+// Removable "Filtered by" chips reflecting the committed (non-default) filters.
+function asgActiveChips(cyc) {
+  const f = PeerState.asg;
+  const chips = [];
+  if (PeerState.cycle !== DB.CURRENT_CYCLE) chips.push(["cycle", `Cycle: ${cyc.label}`]);
+  if (f.project !== "all") chips.push(["project", `Project: ${f.project}`]);
+  if (f.subject !== "all") chips.push(["subject", `Employee: ${f.subject}`]);
+  if (f.status !== "all") chips.push(["status", `Status: ${f.status.charAt(0).toUpperCase()}${f.status.slice(1)}`]);
+  if (!chips.length) return "";
+  return `<div class="filter-chips"><span class="small muted">Filtered by</span>${chips.map(([k, label]) =>
+    `<span class="filter-chip">${UI.esc(label)}<button data-asg-chip="${k}" title="Remove">×</button></span>`).join("")}</div>`;
 }
 
 function assignmentsTab() {
@@ -168,21 +191,16 @@ function assignmentsTab() {
     ${UI.statTile("Completion Rate", rate + "%")}
   </div>`;
 
-  // Saved views.
-  const views = [["all", "All Assignments"], ["my-team", "My Team"], ["pending", "Pending"], ["completed", "Completed"], ["overdue", "Overdue"], ["current-cycle", "Current Cycle"]];
-  const viewChips = `<div class="role-switch" style="flex-wrap:wrap;margin-bottom:12px">${views.map(([id, label]) =>
-    `<button class="role-btn ${f.view === id ? "active" : ""}" data-asg-view="${id}">${label}</button>`).join("")}</div>`;
-
-  // Filter toolbar (Review Cycle is the selector above, from peerCycleBar).
-  const opt = (v, label, sel) => `<option value="${UI.esc(v)}" ${v === sel ? "selected" : ""}>${UI.esc(label)}</option>`;
-  const toolbar = all.length ? `
-    <div class="row" style="gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px">
+  // Search (live) + "Filtered by" chips + a Filters button that toggles the popover.
+  const toolbar = `
+    <div class="filter-bar">
       <input type="search" id="asg-search" placeholder="Search employee or reviewer…" value="${UI.esc(f.search)}" style="min-width:220px;flex:1" />
-      <select id="asg-f-project">${opt("all", "All projects", f.project)}${projects.map((p) => opt(p, p, f.project)).join("")}</select>
-      <select id="asg-f-subject">${opt("all", "All people", f.subject)}${people.map((p) => opt(p, p, f.subject)).join("")}</select>
-      <select id="asg-f-status">${opt("all", "All statuses", f.status)}${opt("pending", "Pending", f.status)}${opt("overdue", "Overdue", f.status)}${opt("completed", "Completed", f.status)}</select>
-      <span class="small muted">${filtered.length} of ${all.length}</span>
-    </div>` : "";
+      ${asgActiveChips(cyc)}
+      <div class="filter-wrap">
+        <button class="btn ${f.panelOpen ? "primary" : ""}" id="asg-filters-btn">⚙ Filters</button>
+        ${f.panelOpen ? asgFilterPanel(projects, people) : ""}
+      </div>
+    </div>`;
 
   // Group the filtered set by the person being reviewed; paginate the GROUPS.
   const groups = {};
@@ -194,42 +212,44 @@ function assignmentsTab() {
   const start = (page - 1) * ASG_GROUPS_PER_PAGE;
   const pageSubjects = subjects.slice(start, start + ASG_GROUPS_PER_PAGE);
 
-  const GRID = "display:grid;grid-template-columns:2.4fr 1.4fr 1.9fr 1.1fr 40px;gap:12px;align-items:center";
+  const GRID = "display:grid;grid-template-columns:2.2fr 1.3fr 1.5fr 1.5fr 1.1fr 40px;gap:12px;align-items:center";
   const header = `<div style="${GRID};padding:10px 14px;position:sticky;top:0;background:var(--surface);border-bottom:1px solid var(--border);z-index:1">
-    <div class="small muted">Employee</div><div class="small muted">Project</div><div class="small muted">Progress</div><div class="small muted">Status</div><div></div>
+    <div class="small muted">Employee</div><div class="small muted">Project</div><div class="small muted">Result</div><div class="small muted">Progress</div><div class="small muted">Status</div><div></div>
   </div>`;
 
   const rows = pageSubjects.map((subj) => {
     const items = groups[subj].slice().sort((a, b) => a.reviewer.localeCompare(b.reviewer));
     const gi = items[0];
     const t = items.length;
-    const c = items.filter((r) => asgStatusOf(r) === "completed").length;
+    const doneItems = items.filter((r) => asgStatusOf(r) === "completed");
+    const c = doneItems.length;
     const over = items.filter((r) => asgStatusOf(r) === "overdue").length;
     const pend = t - c - over;
     const pct = t ? Math.round((c / t) * 100) : 0;
     const projTags = [...new Set(items.map((r) => r.projectName))].map((p) => `<span class="tag">${UI.esc(p)}</span>`).join(" ");
     const summ = over ? asgChip("overdue") : (c === t ? `<span class="badge green">Complete</span>` : `<span class="badge amber">In progress</span>`);
+    // Anonymous aggregate RESULT: average rating across this employee's completed reviews.
+    const avg = c ? doneItems.reduce((a, r) => a + (r.rating || 0), 0) / c : 0;
+    const resultCell = c
+      ? `<div class="row" style="gap:8px;align-items:center">${peerStars(Math.round(avg))}<strong>${avg.toFixed(1)}</strong></div>`
+      : `<span class="small muted">Awaiting results</span>`;
     const open = !!f.expanded[subj];
     const groupRow = `<div style="${GRID};padding:12px 14px;border-bottom:1px solid var(--border);cursor:pointer" data-asg-toggle="${UI.esc(subj)}">
       <div class="row" style="gap:8px;align-items:center"><span class="muted" style="width:12px;display:inline-block">${open ? "▾" : "▸"}</span>${UI.who(subj, gi.subjectInitials, "")}</div>
       <div>${projTags}</div>
+      <div>${resultCell}</div>
       <div>${UI.progress(pct, UI.pctStatus(pct))}<div class="small muted" style="margin-top:4px">${c}/${t} completed${pend ? ` · ${pend} pending` : ""}${over ? ` · ${over} overdue` : ""}</div></div>
       <div>${summ}</div>
       <div class="right"><button class="btn sm ghost" data-asg-menu="${UI.esc(subj)}" title="Actions">⋯</button></div>
     </div>`;
-    const detail = open ? `<div style="padding:4px 14px 12px 40px;border-bottom:1px solid var(--border);background:var(--surface-2)">
-      ${items.map((r) => `<div class="spread" style="align-items:center;padding:6px 0">
-        <div class="small">${r.reviewer === me ? "You" : UI.esc(r.reviewer)}</div>
-        <div class="row" style="gap:10px;align-items:center">${asgChip(asgStatusOf(r))}${r.status === "completed" ? ` ${peerStars(r.rating)}` : ""}<button class="btn sm ghost" data-asg-del="${r.id}" title="Remove">✕</button></div>
-      </div>`).join("")}
-    </div>` : "";
+    const detail = open ? asgDetail(items, doneItems, me) : "";
     return groupRow + detail;
   }).join("");
 
   const grid = subjects.length
     ? `<div class="card" style="padding:0;overflow:hidden">${header}${rows}</div>`
     : (all.length
-      ? `<div class="empty">No assignments match your filters. <button class="btn sm" id="asg-clear">Clear filters</button></div>`
+      ? `<div class="empty">No assignments match your filters. <button class="btn sm" id="asg-clear-empty">Clear filters</button></div>`
       : `<div class="empty">No assignments yet for projects you lead. <button class="btn sm primary" id="asg-generate-empty">Generate for ${UI.esc(cyc.label)}</button></div>`);
 
   const pager = subjects.length > ASG_GROUPS_PER_PAGE || page > 1 ? `
@@ -244,69 +264,42 @@ function assignmentsTab() {
 
   return `
     <div class="section-head">
-      <div><h2 class="mb-0">Assignments</h2><div class="small muted">${UI.esc(cyc.label)} cycle · Due ${UI.esc(cyc.due)} · monitor peer-review completion across your team</div></div>
+      <div><h2 class="mb-0">Assignments</h2><div class="small muted">${UI.esc(cyc.label)} cycle · Due ${UI.esc(cyc.due)} · peer-review results & status across your team</div></div>
       <button class="btn primary" id="asg-generate">↻ Generate assignments</button>
     </div>
     ${cards}
-    ${viewChips}
     ${toolbar}
     ${grid}
     ${pager}`;
 }
 
-/* ---------- About Me ---------- */
-// Anonymous aggregate of the peer feedback about me: overall average plus the
-// average per criterion. Individual reviewers are NEVER shown.
-function aboutMeTab() {
-  const me = peerMe();
-  const cyc = peerCycle();
-  const about = DB.PEER_REVIEWS.filter((r) => r.subject === me && r.status === "completed" && r.cycleId === PeerState.cycle);
-  const sub = `Anonymous peer feedback about you · ${UI.esc(cyc.label)}`;
+// Expanded row: reviewer progress (name + status only — individual scores stay
+// anonymous) plus the anonymous per-criterion result breakdown for this employee.
+function asgDetail(items, doneItems, me) {
+  const reviewerRows = items.map((r) => `<div class="spread" style="align-items:center;padding:6px 0">
+      <div class="small">${r.reviewer === me ? "You" : UI.esc(r.reviewer)}</div>
+      <div class="row" style="gap:10px;align-items:center">${asgChip(asgStatusOf(r))}<button class="btn sm ghost" data-asg-del="${r.id}" title="Remove">✕</button></div>
+    </div>`).join("");
 
-  if (!about.length) {
-    return `
-      <div class="section-head"><div><h2 class="mb-0">About Me</h2><div class="small muted">${sub}</div></div></div>
-      <div class="empty">No completed peer reviews about you for ${UI.esc(cyc.label)} yet.</div>`;
-  }
-
-  const avg = about.reduce((a, r) => a + (r.rating || 0), 0) / about.length;
-
-  // Average each criterion across all reviews, ordered by the template.
-  const agg = {}; // label -> { sum, n }
-  about.forEach((r) => (r.scores || []).forEach((s) => {
+  // Aggregate scores per criterion across completed reviews, ordered by the template.
+  const agg = {};
+  doneItems.forEach((r) => (r.scores || []).forEach((s) => {
     const a = agg[s.label] || (agg[s.label] = { sum: 0, n: 0 });
     a.sum += s.rating; a.n += 1;
   }));
-  const templateOrder = (DB.PEER_REVIEW_TEMPLATE.criteria || []).map((c) => c.label);
-  const labels = [...templateOrder.filter((l) => agg[l]), ...Object.keys(agg).filter((l) => !templateOrder.includes(l))];
-  const breakdown = labels.map((l) => {
-    const a = agg[l], av = a.sum / a.n;
-    return `<div class="spread" style="align-items:center;padding:9px 0;border-bottom:1px solid var(--border)">
-      <div><div class="small">${UI.esc(l)}</div><div class="small muted">${a.n} rating${a.n === 1 ? "" : "s"}</div></div>
-      <div class="row" style="gap:10px;align-items:center">${peerStars(Math.round(av))}<strong>${av.toFixed(1)}</strong></div>
-    </div>`;
-  }).join("");
+  const order = (DB.PEER_REVIEW_TEMPLATE.criteria || []).map((c) => c.label);
+  const labels = [...order.filter((l) => agg[l]), ...Object.keys(agg).filter((l) => !order.includes(l))];
+  const critRows = labels.length
+    ? labels.map((l) => {
+        const a = agg[l], av = a.sum / a.n;
+        return `<div class="spread" style="align-items:center;padding:6px 0"><span class="small muted">${UI.esc(l)}</span><div class="row" style="gap:8px;align-items:center">${peerStars(Math.round(av))}<strong class="small">${av.toFixed(1)}</strong></div></div>`;
+      }).join("")
+    : `<div class="small muted">No completed reviews yet.</div>`;
 
-  const summary = `
-    <div class="card" style="margin-bottom:18px">
-      <div class="spread">
-        <div><div class="stat-label">Average peer rating</div><div class="stat-value">${avg.toFixed(1)} <span class="small muted">/ 5</span></div></div>
-        ${peerStars(Math.round(avg))}
-      </div>
-      <div class="small muted" style="margin-top:8px">🕶 ${about.length} anonymous peer review${about.length === 1 ? "" : "s"} · reviewers are not shown</div>
-    </div>`;
-
-  const breakdownCard = `
-    <div class="card">
-      <div class="card-title" style="margin:0 0 4px">Rating by criterion</div>
-      <div class="small muted" style="margin-bottom:6px">Average across all peer reviews about you.</div>
-      ${breakdown}
-    </div>`;
-
-  return `
-    <div class="section-head"><div><h2 class="mb-0">About Me</h2><div class="small muted">${sub}</div></div></div>
-    ${summary}
-    ${breakdownCard}`;
+  return `<div style="border-bottom:1px solid var(--border);background:var(--surface-2);padding:12px 14px 14px 40px;display:grid;grid-template-columns:1fr 1fr;gap:28px">
+    <div><div class="small muted" style="margin-bottom:6px;font-weight:var(--fw-semibold)">Reviewers · ${items.length}</div>${reviewerRows}</div>
+    <div><div class="small muted" style="margin-bottom:6px;font-weight:var(--fw-semibold)">🕶 Result by criterion · anonymous</div>${critRows}</div>
+  </div>`;
 }
 
 /* ---------- View + wiring ---------- */
@@ -316,9 +309,10 @@ window.Views.peer = function () {
   // Leader's "Assignments" back to Employee), fall back to To Review.
   if (!peerTabs(role).some((t) => t.id === PeerState.tab)) PeerState.tab = "to-review";
   if (!DB.EVAL_CYCLES.some((c) => c.id === PeerState.cycle)) PeerState.cycle = DB.CURRENT_CYCLE;
-  const body = PeerState.tab === "assignments" ? assignmentsTab()
-    : PeerState.tab === "about-me" ? aboutMeTab() : toReviewTab();
-  return `${peerTabsBar(role)}${peerCycleBar()}${body}`;
+  const body = PeerState.tab === "assignments" ? assignmentsTab() : toReviewTab();
+  // Assignments carries its own cycle selector inside the Filters popover.
+  const cycleBar = PeerState.tab === "to-review" ? peerCycleBar() : "";
+  return `${peerTabsBar(role)}${cycleBar}${body}`;
 };
 
 window.ViewsWire.peer = function () {
@@ -342,26 +336,61 @@ window.ViewsWire.peer = function () {
     const genEmpty = document.getElementById("asg-generate-empty");
     if (genEmpty) genEmpty.addEventListener("click", doGenerate);
 
-    // Filters (any change → custom view, page 1).
-    [["asg-f-project", "project"], ["asg-f-subject", "subject"], ["asg-f-status", "status"]].forEach(([elId, key]) => {
-      const el = document.getElementById(elId);
-      if (el) el.addEventListener("change", () => { PeerState.asg[key] = el.value; PeerState.asg.view = "custom"; PeerState.asg.page = 1; rerenderPeer(); });
-    });
+    // Commit the draft filters (Update Results) / reset everything (Clear).
+    const commit = () => {
+      const d = PeerState.asg.draft;
+      if (d) { PeerState.cycle = d.cycle; PeerState.asg.project = d.project; PeerState.asg.subject = d.subject; PeerState.asg.status = d.status; }
+      PeerState.asg.page = 1; PeerState.asg.panelOpen = false; PeerState.asg.draft = null; rerenderPeer();
+    };
+    const clearAll = () => {
+      PeerState.cycle = DB.CURRENT_CYCLE;
+      Object.assign(PeerState.asg, { project: "all", subject: "all", status: "all", search: "", page: 1, panelOpen: false, draft: null });
+      rerenderPeer();
+    };
 
-    // Live search — re-render, then restore focus + caret to the search box.
+    // Live search — re-render, then restore focus AND the caret to where it was
+    // (not the end), so typing/editing mid-string behaves normally.
     const search = document.getElementById("asg-search");
     if (search) search.addEventListener("input", () => {
-      PeerState.asg.search = search.value; PeerState.asg.view = "custom"; PeerState.asg.page = 1;
+      const caret = search.selectionStart;
+      PeerState.asg.search = search.value; PeerState.asg.page = 1;
       rerenderPeer();
       const s = document.getElementById("asg-search");
-      if (s) { s.focus(); s.setSelectionRange(s.value.length, s.value.length); }
+      if (s) {
+        s.focus();
+        try { s.setSelectionRange(caret, caret); } catch (e) { /* caret not settable on some inputs */ }
+      }
     });
 
-    // Saved views + clear-filters CTA.
-    document.querySelectorAll("[data-asg-view]").forEach((b) =>
-      b.addEventListener("click", () => { asgApplyView(b.dataset.asgView); rerenderPeer(); }));
+    // Toggle the Filters popover; opening seeds the draft from the committed filters.
+    const fbtn = document.getElementById("asg-filters-btn");
+    if (fbtn) fbtn.addEventListener("click", () => {
+      const a = PeerState.asg;
+      a.panelOpen = !a.panelOpen;
+      a.draft = a.panelOpen ? { cycle: PeerState.cycle, project: a.project, subject: a.subject, status: a.status } : null;
+      rerenderPeer();
+    });
+
+    // Panel selects write to the draft only (committed on Update Results).
+    [["asg-d-cycle", "cycle"], ["asg-d-project", "project"], ["asg-d-subject", "subject"], ["asg-d-status", "status"]].forEach(([elId, key]) => {
+      const el = document.getElementById(elId);
+      if (el) el.addEventListener("change", () => { if (PeerState.asg.draft) PeerState.asg.draft[key] = el.value; });
+    });
+    const apply = document.getElementById("asg-apply");
+    if (apply) apply.addEventListener("click", commit);
     const clear = document.getElementById("asg-clear");
-    if (clear) clear.addEventListener("click", () => { asgApplyView("all"); rerenderPeer(); });
+    if (clear) clear.addEventListener("click", clearAll);
+    const clearEmpty = document.getElementById("asg-clear-empty");
+    if (clearEmpty) clearEmpty.addEventListener("click", clearAll);
+
+    // Remove a single committed filter via its "Filtered by" chip.
+    document.querySelectorAll("[data-asg-chip]").forEach((b) =>
+      b.addEventListener("click", () => {
+        const k = b.dataset.asgChip;
+        if (k === "cycle") PeerState.cycle = DB.CURRENT_CYCLE;
+        else PeerState.asg[k] = "all";
+        PeerState.asg.page = 1; rerenderPeer();
+      }));
 
     // Expand/collapse a person's group (ignore clicks on the overflow button).
     document.querySelectorAll("[data-asg-toggle]").forEach((el) =>

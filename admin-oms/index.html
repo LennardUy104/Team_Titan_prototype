@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" />
   <link rel="stylesheet" href="styles.css" />
-  <link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2024%2024'%3E%3Cg%20fill='none'%20stroke='%234e8a34'%20stroke-width='1.3'%20stroke-linecap='round'%3E%3Cpath%20d='M11%203.7%20L9%201.7'/%3E%3Cpath%20d='M13%203.7%20L15%201.7'/%3E%3Cpath%20d='M10.4%209%20L5.5%206.6'/%3E%3Cpath%20d='M13.6%209%20L18.5%206.6'/%3E%3Cpath%20d='M10.1%2010.4%20L4.8%2010.4'/%3E%3Cpath%20d='M13.9%2010.4%20L19.2%2010.4'/%3E%3Cpath%20d='M10.4%2011.6%20L5.9%2014.4'/%3E%3Cpath%20d='M13.6%2011.6%20L18.1%2014.4'/%3E%3C/g%3E%3Cg%20fill='%234e8a34'%3E%3Crect%20x='11.35'%20y='6.6'%20width='1.3'%20height='2.2'%20rx='.5'/%3E%3Crect%20x='11.25'%20y='11.4'%20width='1.5'%20height='1.6'%20rx='.5'/%3E%3Ccircle%20cx='12'%20cy='5'%20r='2.3'/%3E%3Ccircle%20cx='12'%20cy='10'%20r='2'/%3E%3Cellipse%20cx='12'%20cy='16.4'%20rx='3.2'%20ry='4.2'/%3E%3C/g%3E%3C/svg%3E" />
+  <link rel="icon" type="image/png" href="assets/oms-logo-mark-64.png" />
   <!-- Auth gate: unauthenticated visitors are sent to the login page (fake auth, prototype). -->
   <script>
     try {
@@ -21,8 +21,11 @@
     <!-- Sidebar -->
     <aside class="sidebar">
       <div class="brand">
-        <span class="brand-mark" title="OMS — the colony of objectives"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"><path d="M11 3.7 L9 1.7"/><path d="M13 3.7 L15 1.7"/><path d="M10.4 9 L5.5 6.6"/><path d="M13.6 9 L18.5 6.6"/><path d="M10.1 10.4 L4.8 10.4"/><path d="M13.9 10.4 L19.2 10.4"/><path d="M10.4 11.6 L5.9 14.4"/><path d="M13.6 11.6 L18.1 14.4"/></g><g fill="currentColor"><rect x="11.35" y="6.6" width="1.3" height="2.2" rx=".5"/><rect x="11.25" y="11.4" width="1.5" height="1.6" rx=".5"/><circle cx="12" cy="5" r="2.3"/><circle cx="12" cy="10" r="2"/><ellipse cx="12" cy="16.4" rx="3.2" ry="4.2"/></g></svg></span>
-        <span class="brand-name">SUN* PH Objective Management System (OMS)</span>
+        <img class="brand-mark-img" src="assets/oms-logo-mark.png" alt="OMS logo" title="OMS — the colony of objectives" />
+        <div class="brand-text">
+          <span class="brand-word">SUN* OMS</span>
+          <span class="brand-sub">PH Objective Management System</span>
+        </div>
       </div>
       <div class="nav-section">Workspace</div>
       <nav class="nav" id="nav">
@@ -38,12 +41,12 @@
         <button class="nav-item" data-view="peer">
           <span class="nav-ico">★</span> Peer Review
         </button>
-        <button class="nav-item" data-view="reports">
-          <span class="nav-ico">▤</span> Reports
-        </button>
         <div class="nav-divider" data-leader-only></div>
         <button class="nav-item" data-view="feedback">
           <span class="nav-ico">✎</span> Feedback
+        </button>
+        <button class="nav-item" data-view="reports">
+          <span class="nav-ico">▤</span> Reports
         </button>
         <button class="nav-item" data-view="admin">
           <span class="nav-ico">⚙</span> Admin
@@ -89,7 +92,9 @@
   <script src="mock-data.js"></script>
   <script src="peer-assignments.js"></script>
   <script src="objective-evidence.js"></script>
+  <script src="objective-proof.js"></script>
   <script src="objective-okr.js"></script>
+  <script src="objective-form.js"></script>
   <script src="views-analytics.js"></script>
   <script src="views-objectives.js"></script>
   <script src="views-ai.js"></script>

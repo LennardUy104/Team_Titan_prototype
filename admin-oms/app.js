@@ -284,14 +284,14 @@ function render() {
   if (App.view === "evidence" || App.view === "my-feedback") App.view = "objectives";
   // Leader-only views: hide their nav items (+ the leader-only divider) and
   // bounce employees off them.
-  ["feedback", "admin"].forEach((v) => {
+  ["reports", "feedback", "admin"].forEach((v) => {
     const nav = document.querySelector(`.nav-item[data-view="${v}"]`);
     if (nav) nav.style.display = App.role === "leader" ? "" : "none";
   });
   document.querySelectorAll("[data-leader-only]").forEach((el) => {
     el.style.display = App.role === "leader" ? "" : "none";
   });
-  if (App.role !== "leader" && (App.view === "feedback" || App.view === "admin")) App.view = "objectives";
+  if (App.role !== "leader" && (App.view === "reports" || App.view === "feedback" || App.view === "admin")) App.view = "objectives";
 
   document.getElementById("topbar-title").textContent = VIEW_TITLES[App.view];
 
