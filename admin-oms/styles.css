@@ -425,6 +425,29 @@ input:focus, textarea:focus, select:focus { outline: none; border-color: var(--a
 
 /* misc */
 .stack { display: flex; flex-direction: column; gap: 14px; }
+
+/* Assigned-employees panel (Feedback) — Slack-style scrollable member list */
+.mem-list { max-height: 380px; overflow: auto; }
+.mem-list .row-item.clickable { cursor: pointer; padding-left: 6px; padding-right: 6px; border-radius: var(--r-btn); }
+.mem-list .row-item.clickable:hover { background: var(--surface-2); }
+
+/* Leader Feedback — Evaluation start card (design: plans/designs/leader-feedback-evaluation-card.md) */
+.eval-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.eval-id { display: flex; align-items: center; gap: 12px; }
+.eval-id .avatar { width: 40px; height: 40px; font-size: 14px; flex-shrink: 0; }
+.eval-eyebrow { font-size: var(--fs-eyebrow); font-weight: var(--fw-semibold); text-transform: uppercase; letter-spacing: var(--ls-wide); color: var(--muted); }
+.eval-name { font-size: var(--fs-section); font-weight: var(--fw-bold); letter-spacing: var(--ls-tight); color: var(--text); line-height: 1.2; }
+.eval-role { font-size: var(--fs-helper); color: var(--muted); margin-top: 1px; }
+.eval-bar { margin: 14px 0 4px; }
+.eval-row { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--border); }
+.eval-row:last-of-type { border-bottom: none; }
+.eval-rail { width: 3px; align-self: stretch; min-height: 34px; border-radius: var(--r-pill); background: var(--amber); flex-shrink: 0; }
+.eval-row.done .eval-rail { background: var(--green); }
+.eval-row-main { flex: 1; min-width: 0; }
+.eval-row-title { font-weight: var(--fw-semibold); color: var(--text); }
+.eval-row-meta { font-size: var(--fs-helper); color: var(--muted); margin-top: 2px; }
+.eval-foot { display: flex; align-items: center; gap: 12px; margin-top: 16px; flex-wrap: wrap; }
+.eval-foot .hint { font-size: var(--fs-helper); color: var(--muted); }
 .row { display: flex; align-items: center; gap: 10px; }
 .spread { display: flex; align-items: center; justify-content: space-between; }
 .mt-0 { margin-top: 0; } .mb-0 { margin-bottom: 0; }
